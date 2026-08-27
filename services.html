@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Services — Fieldnote</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<div class="wrap">
+  <section class="page-hero">
+    <div class="eyebrow">What we do</div>
+    <h1>Everything a site needs, none of it bolted on later.</h1>
+    <p>Design, build, and content handled as one job — not three separate quotes from three separate people.</p>
+  </section>
+
+  <div class="card-grid" id="serviceGrid"></div>
+
+  <section style="padding:20px 0 70px; text-align:center;">
+    <a href="pricing.html" class="btn-primary">See packages & pricing →</a>
+  </section>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module">
+  import { renderHeader, renderFooter } from './assets/site-chrome.js';
+  renderHeader('services.html');
+  renderFooter();
+
+  const ICONS = {
+    palette: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a10 10 0 1 0 0 20c1.5 0 2-1 2-2s-.5-1.5-1-2 .5-2 2-2h1a4 4 0 0 0 4-4 8 8 0 0 0-8-10z"/><circle cx="7.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="11" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="9" r="1.2" fill="currentColor" stroke="none"/></svg>',
+    wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4L21 6l-3-3-3.3 3.3z"/></svg>',
+    globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 4 6 4 9s-1.5 6.4-4 9c-2.5-2.6-4-6-4-9s1.5-6.4 4-9z"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></svg>',
+    cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none"/><circle cx="17" cy="20" r="1.4" fill="currentColor" stroke="none"/><path d="M2 3h3l2.5 12h10L20 7H6"/></svg>',
+    database: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>',
+  };
+  const items = [
+    { icon:'palette', title:'Design systems', desc:'Custom type, color, and layout built from your brief — never a stock theme.' },
+    { icon:'wrench', title:'Build & development', desc:'Fast, clean, maintainable code on modern static and database tooling.' },
+    { icon:'globe', title:'Multilingual content', desc:'English, Russian, Estonian, and Swedish, written to sound like you, not a translator.' },
+    { icon:'lock', title:'Accounts & authentication', desc:'Secure logins, member areas, and role-based access when your site needs it.' },
+    { icon:'cart', title:'Payments & bookings', desc:'Stripe checkout, booking calendars, and order management, wired end to end.' },
+    { icon:'database', title:'Ongoing care', desc:'A monthly retainer for updates, small changes, and keeping things running.' },
+  ];
+  document.getElementById('serviceGrid').innerHTML = items.map(it => `
+    <div class="info-card">
+      <div class="icon-badge">${ICONS[it.icon]}</div>
+      <h3>${it.title}</h3>
+      <p>${it.desc}</p>
+    </div>`).join('');
+</script>
+</body>
+</html>

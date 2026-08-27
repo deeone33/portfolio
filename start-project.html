@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Start a project — Fieldnote</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<div class="wrap">
+  <section class="page-hero">
+    <div class="eyebrow">Let's get started</div>
+    <h1>Which one sounds like your project?</h1>
+    <p>Pick the closest match — you'll get a chance to add details before anything's charged.</p>
+  </section>
+
+  <div class="plans">
+    <div class="plan">
+      <div class="t">Starter</div>
+      <h3>€450</h3>
+      <p style="font-size:13px; color:var(--mute); margin:10px 0 14px;">A single, polished page — good for a landing page or a simple presence.</p>
+      <a class="plan-cta" href="pricing.html?plan=starter" style="display:block; text-decoration:none; text-align:center;">Choose Starter</a>
+    </div>
+    <div class="plan feat">
+      <div class="t">Standard</div>
+      <h3>€1,200</h3>
+      <p style="font-size:13px; color:var(--oncoral); opacity:.9; margin:10px 0 14px;">A full multi-page site with content you can edit yourself. Most common choice.</p>
+      <a class="plan-cta" href="pricing.html?plan=standard" style="display:block; text-decoration:none; text-align:center;">Choose Standard</a>
+    </div>
+    <div class="plan">
+      <div class="t">Full Build</div>
+      <h3>€2,900+</h3>
+      <p style="font-size:13px; color:var(--mute); margin:10px 0 14px;">Accounts, payments, bookings — a real web application, not just a site.</p>
+      <a class="plan-cta" href="pricing.html?plan=fullbuild" style="display:block; text-decoration:none; text-align:center;">Choose Full Build</a>
+    </div>
+  </div>
+
+  <p style="text-align:center; margin:30px 0 60px; color:var(--mute); font-size:14px;">
+    Not sure, or need something different? <a href="quote.html" style="color:var(--coral); font-weight:600;">Get a custom quote instead →</a>
+  </p>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module">
+  import { renderHeader, renderFooter } from './assets/site-chrome.js';
+  renderHeader('start-project.html');
+  renderFooter();
+</script>
+</body>
+</html>

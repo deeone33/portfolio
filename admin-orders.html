@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Orders — Fieldnote Admin</title>
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+  .wrap{max-width:900px;}
+  .order-card{border:1px solid var(--hair); border-radius:14px; padding:24px; margin-bottom:16px; background:var(--ink2);}
+  .order-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; gap:16px;}
+  .order-top h3{font-size:18px; font-weight:700;}
+  .order-meta{font-size:12.5px; color:var(--mute); margin-top:4px;}
+  .status-select{padding:8px 12px; border-radius:8px; border:1px solid var(--hair); font-size:13px; font-family:inherit; background:#fff;}
+  .file-row{display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#fff; border:1px solid var(--hair); border-radius:8px; margin-top:8px; font-size:13px;}
+  .upload-row{display:flex; gap:8px; margin-top:10px; align-items:center;}
+  .comment{padding:10px 0; border-top:1px solid var(--hair); font-size:13.5px;}
+  .comment .who{font-weight:700; font-size:12px; color:var(--mute); margin-bottom:2px;}
+  .comment-box{display:flex; gap:8px; margin-top:12px;}
+  .comment-box input{flex:1;}
+  .filter-bar{display:flex; gap:8px; margin:20px 0 10px; flex-wrap:wrap;}
+  .filter-bar button{padding:8px 14px; border-radius:100px; border:1px solid var(--hair); background:#fff; font-size:13px; cursor:pointer; font-weight:600;}
+  .filter-bar button.on{background:var(--paper); color:#fff; border-color:var(--paper);}
+</style>
+</head>
+<body>
+<div id="site-header"></div>
+
+<div class="wrap" style="padding-bottom:70px;">
+  <section class="page-hero" style="padding-bottom:0;">
+    <div class="eyebrow">Staff only</div>
+    <h1>Orders</h1>
+  </section>
+
+  <div class="filter-bar" id="filterBar"></div>
+  <div id="ordersList" style="margin-top:10px;"></div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module">
+  import { renderHeader, renderFooter } from './assets/site-chrome.js';
+  import { requireAdmin } from './shared/auth.js';
+  import { getAllOrders, updateOrderStatus, postComment, uploadDeliverable, getDownloadUrl, formatMoney } from './shared/orders.js';
+
+  renderHeader('admin-orders.html');
+  renderFooter();
+
+  const staffUser = await requireAdmin();
+  if (!staffUser) throw new Error('redirecting');
+
+  const STATUSES = ['pending_payment','paid','in_progress','delivered','cancelled'];
+  let currentFilter = 'all';
+  let allOrders = [];
+
+  document.getElementById('filterBar').innerHTML =
+    `<button data-f="all" class="on">All</button>` +
+    STATUSES.map(s => `<button data-f="${s}">${s.replace('_',' ')}</button>`).join('');
+  document.querySelectorAll('.filter-bar button').forEach(b => {
+    b.addEventListener('click', () => {
+      currentFilter = b.dataset.f;
+      document.querySelectorAll('.filter-bar button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      draw();
+    });
+  });
+
+  async function load(){
+    allOrders = await getAllOrders();
+    draw();
+  }
+  function draw(){
+    const list = currentFilter === 'all' ? allOrders : allOrders.filter(o => o.status === currentFilter);
+    const el = document.getElementById('ordersList');
+    if (!list.length) { el.innerHTML = `<p style="color:var(--mute); padding:30px 0;">No orders in this view.</p>`; return; }
+    el.innerHTML = list.map(o => renderOrder(o)).join('');
+    bindOrder(list);
+  }
+
+  function renderOrder(o){
+    const files = (o.order_files || []);
+    const comments = (o.order_comments || []).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    return `
+      <div class="order-card" data-order="${o.id}">
+        <div class="order-top">
+          <div>
+            <h3>${o.plan_label} — ${escapeHtml(o.profiles?.full_name || o.profiles?.email || 'Unknown customer')}</h3>
+            <div class="order-meta">${escapeHtml(o.profiles?.email || '')} · Ordered ${new Date(o.created_at).toLocaleDateString()} · ${formatMoney(o.price_cents, o.currency)}</div>
+          </div>
+          <select class="status-select" data-order="${o.id}">
+            ${STATUSES.map(s => `<option value="${s}" ${o.status===s?'selected':''}>${s.replace('_',' ')}</option>`).join('')}
+          </select>
+        </div>
+        ${o.notes ? `<p style="font-size:13px; color:var(--mute); margin-top:8px;">"${escapeHtml(o.notes)}"</p>` : ''}
+
+        <div style="margin-top:14px;">
+          <div class="order-meta" style="margin-bottom:4px;">Deliverable files</div>
+          ${files.map(f => `<div class="file-row"><span>${escapeHtml(f.file_name)}</span><a href="#" class="dl-link" data-path="${f.file_path}" style="color:var(--coral); font-weight:700;">Download</a></div>`).join('')}
+          <div class="upload-row">
+            <input type="file" data-upload="${o.id}">
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <div class="order-meta" style="margin-bottom:4px;">Comments</div>
+          ${comments.length ? comments.map(c => `<div class="comment"><div class="who">${c.author_role === 'staff' ? 'You (staff)' : 'Customer'} · ${new Date(c.created_at).toLocaleDateString()}</div>${escapeHtml(c.body)}</div>`).join('') : `<div style="font-size:13px;color:var(--mute);">No comments yet.</div>`}
+          <div class="comment-box">
+            <input type="text" data-comment-input="${o.id}" placeholder="Reply to the customer...">
+            <button class="btn-secondary" data-comment-send="${o.id}">Send</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function bindOrder(list){
+    document.querySelectorAll('.status-select').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        await updateOrderStatus(sel.dataset.order, sel.value);
+        await load();
+      });
+    });
+    document.querySelectorAll('[data-comment-send]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const orderId = btn.dataset.commentSend;
+        const input = document.querySelector(`[data-comment-input="${orderId}"]`);
+        const body = input.value.trim();
+        if (!body) return;
+        await postComment(orderId, staffUser.id, 'staff', body);
+        await load();
+      });
+    });
+    document.querySelectorAll('[data-upload]').forEach(inp => {
+      inp.addEventListener('change', async () => {
+        const orderId = inp.dataset.upload;
+        const file = inp.files[0];
+        if (!file) return;
+        await uploadDeliverable(orderId, file, staffUser.id);
+        await load();
+      });
+    });
+    document.querySelectorAll('.dl-link').forEach(a => {
+      a.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const url = await getDownloadUrl(a.dataset.path);
+        window.open(url, '_blank');
+      });
+    });
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+  }
+
+  load();
+</script>
+</body>
+</html>

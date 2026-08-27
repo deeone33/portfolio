@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fieldnote — Tier 1 CMS Prototype</title>
+<style>
+  :root{
+    --ink:#EEF0F2; --ink2:#F7F8F9; --paper:#1E2126; --coral:#35414F; --oncoral:#F5F6F7; --oncoral-strong:#EEF0F2;
+    --mint:#4E6570; --mute:#50565F; --hair:rgba(30,33,38,.10); --linecol:rgba(30,33,38,.14);
+    --dotcol:rgba(30,33,38,.25); --dashcol:rgba(30,33,38,.18); --shadow:rgba(20,22,26,.14);
+    --glow1:rgba(53,65,79,.10); --glow2:rgba(78,101,112,.08);
+    --card-a:linear-gradient(160deg,#FAFBFC,#E9ECEF); --card-b:linear-gradient(160deg,#F4F5F7,#E4E7EA); --card-c:linear-gradient(160deg,#F7F8FA,#E7EAED);
+    --admin:#C7501F;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; }
+  body{ background:var(--ink); color:var(--paper); font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; overflow-x:hidden; }
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 44px; }
+  a{ color:inherit; text-decoration:none; }
+  ul{ list-style:none; }
+
+  /* ---------- ADMIN BAR ---------- */
+  #adminbar{ display:none; position:sticky; top:0; z-index:200; background:var(--paper); color:#fff; padding:10px 20px; align-items:center; justify-content:space-between; font-size:13px; }
+  #adminbar.on{ display:flex; }
+  #adminbar .left{ display:flex; align-items:center; gap:12px; }
+  #adminbar .dot{ width:8px; height:8px; border-radius:50%; background:var(--admin); }
+  #adminbar button{ font-family:inherit; font-size:12.5px; font-weight:600; border:none; border-radius:6px; padding:8px 14px; cursor:pointer; }
+  #adminbar .publish{ background:var(--admin); color:#fff; }
+  #adminbar .hidden-btn{ background:rgba(255,255,255,.12); color:#fff; }
+  #adminbar .exit{ background:none; color:#bbb; }
+
+  /* ---------- EDIT AFFORDANCES ---------- */
+  .editable{ position:relative; }
+  body.admin .editable:hover{ outline:1.5px dashed var(--admin); outline-offset:4px; border-radius:4px; }
+  .edit-pencil{ display:none; position:absolute; top:-12px; right:-12px; width:26px; height:26px; border-radius:50%; background:var(--admin); color:#fff; align-items:center; justify-content:center; font-size:12px; cursor:pointer; z-index:15; box-shadow:0 4px 10px rgba(0,0,0,.25); }
+  body.admin .editable:hover .edit-pencil{ display:flex; }
+  /* Nav links sit tight against each other — a full-size pencil at the default offset
+     overlaps the next link and makes it unclear (and hard) to click. Smaller + tucked in. */
+  nav .link .edit-pencil, nav .cta .edit-pencil{ width:18px; height:18px; font-size:9px; top:-8px; right:-8px; }
+  nav{ gap:26px; } /* a little more breathing room now that pencils sit inside that gap */
+  .reorder-controls{ display:none; position:absolute; top:-12px; left:-12px; flex-direction:column; gap:3px; z-index:15; }
+  body.admin .box-wrap:hover .reorder-controls{ display:flex; }
+  .reorder-controls button{ width:22px; height:18px; border:none; background:var(--paper); color:#fff; font-size:10px; cursor:pointer; border-radius:4px; }
+  .section-gear{ display:none; position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.9); border:1px solid var(--hair); align-items:center; justify-content:center; cursor:pointer; font-size:13px; z-index:12; }
+  body.admin .section-shell:hover .section-gear{ display:flex; }
+  .section-shell{ position:relative; }
+
+  /* Hovering the gear/arrows highlights exactly which section or box they control —
+     answers "which box is this cogwheel attached to" the way devtools inspect does. */
+  body.admin .section-shell:has(.section-gear:hover){ outline:2px solid var(--admin); outline-offset:-2px; background:rgba(199,80,31,.04); }
+  body.admin .box-wrap:has(.reorder-controls button:hover){ outline:2px solid var(--admin); outline-offset:-2px; }
+
+  [data-editpath]{ cursor:text; }
+  .inline-editing{ outline:2px solid var(--admin) !important; outline-offset:2px; background:rgba(199,80,31,.06); border-radius:4px; }
+
+  /* ---------- PANEL (side editor) ---------- */
+  #panel-backdrop{ position:fixed; inset:0; background:rgba(20,22,26,.35); display:none; z-index:300; }
+  #panel-backdrop.open{ display:block; }
+  #panel{ position:fixed; top:0; right:0; height:100%; width:320px; background:#fff; box-shadow:-10px 0 30px rgba(0,0,0,.15); z-index:301; padding:24px; overflow-y:auto; transform:translateX(100%); transition:.25s; }
+  #panel.open{ transform:translateX(0); }
+  #panel h4{ font-size:15px; font-weight:800; margin-bottom:4px; }
+  #panel .sub{ font-size:12px; color:var(--mute); margin-bottom:18px; }
+  #panel label{ display:block; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); margin:16px 0 6px; }
+  #panel input[type=text], #panel textarea, #panel select{ width:100%; padding:9px 10px; border:1px solid var(--hair); border-radius:6px; font-size:13.5px; font-family:inherit; }
+  #panel textarea{ min-height:70px; resize:vertical; }
+  #panel input[type=range]{ width:100%; }
+  #panel input[type=color]{ width:100%; height:34px; border:1px solid var(--hair); border-radius:6px; }
+  #panel .row{ display:flex; gap:8px; }
+  #panel .row > *{ flex:1; }
+  #panel .toggle-group{ display:flex; gap:6px; margin-top:4px; }
+  #panel .toggle-group button{ flex:1; padding:8px; border:1px solid var(--hair); background:#fff; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px; }
+  #panel .toggle-group button.on{ background:var(--paper); color:#fff; border-color:var(--paper); }
+  #panel .danger{ margin-top:24px; width:100%; padding:11px; border-radius:8px; border:1px solid #E2A79C; background:#FBEDEA; color:#A1352A; font-weight:700; font-size:13px; cursor:pointer; }
+  #panel .close-panel{ position:absolute; top:16px; right:16px; background:none; border:none; font-size:16px; cursor:pointer; color:var(--mute); }
+  #panel .imgprev{ margin-top:8px; width:100%; height:80px; border-radius:6px; background-size:cover; background-position:center; border:1px solid var(--hair); }
+
+  /* ---------- LOGIN MODAL ---------- */
+  .modal-backdrop{ position:fixed; inset:0; background:rgba(20,22,26,.45); display:none; align-items:center; justify-content:center; z-index:250; }
+  .modal-backdrop.open{ display:flex; }
+  .modal{ background:var(--ink); border:1px solid var(--hair); border-radius:16px; padding:32px; width:340px; box-shadow:0 30px 60px -20px var(--shadow); position:relative; }
+  .modal h3{ font-size:19px; font-weight:800; margin-bottom:6px; }
+  .modal p{ font-size:13px; color:var(--mute); margin-bottom:20px; }
+  .modal input{ width:100%; padding:12px 14px; border-radius:8px; border:1px solid var(--hair); background:var(--ink2); font-size:14px; margin-bottom:10px; color:var(--paper); font-family:inherit; }
+  .modal .go{ width:100%; margin-top:6px; padding:13px; border-radius:100px; background:var(--paper); color:var(--ink); font-weight:700; font-size:14px; border:none; cursor:pointer; }
+  .modal-close{ position:absolute; top:16px; right:16px; background:none; border:none; color:var(--mute); font-size:18px; cursor:pointer; }
+  .modal .note{ font-size:11.5px; color:var(--mute); margin-top:14px; text-align:center; }
+
+  /* ---------- HIDDEN ELEMENTS DRAWER ---------- */
+  #hidden-drawer{ position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--hair); z-index:260; padding:16px 24px; display:none; max-height:40vh; overflow-y:auto; }
+  #hidden-drawer.open{ display:block; }
+  #hidden-drawer h4{ font-size:14px; margin-bottom:10px; }
+  .hidden-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid var(--hair); font-size:13px; }
+  .hidden-row button{ font-size:12px; font-weight:700; border:none; background:var(--admin); color:#fff; padding:6px 12px; border-radius:6px; cursor:pointer; }
+
+  /* ---------- PUBLISH PREVIEW ---------- */
+  #publish-modal .modal{ width:520px; max-height:70vh; overflow-y:auto; }
+  #publish-modal pre{ background:#111; color:#8FE3C4; font-size:11px; padding:14px; border-radius:8px; overflow-x:auto; max-height:320px; }
+
+  /* ---------- SITE CHROME (from approved design) ---------- */
+  header{ display:flex; justify-content:space-between; align-items:center; padding:28px 0; position:relative; z-index:10; }
+  .logo{ font-weight:800; font-size:19px; letter-spacing:-.01em; }
+  .logo .dot{ color:var(--coral); }
+  nav{ display:flex; align-items:center; gap:22px; }
+  nav a.link{ font-size:14.5px; font-weight:500; color:var(--mute); padding:8px 10px; border-radius:6px; transition:.15s ease; }
+  nav a.link:hover{ color:var(--paper); background:var(--hair); }
+  nav .cta{ background:var(--coral); color:var(--oncoral); font-weight:700; font-size:14px; padding:13px 24px; border-radius:100px; transition:.18s ease; box-shadow:0 4px 14px -6px var(--shadow); }
+  nav .cta:hover{ background:var(--paper); color:var(--ink); transform:translateY(-2px); box-shadow:0 10px 24px -8px var(--shadow); }
+  .lang{ position:relative; }
+  .lang-btn{ display:flex; align-items:center; gap:6px; background:none; border:none; cursor:pointer; font-family:inherit; padding:6px; border-radius:8px; }
+  .lang-btn:hover{ background:var(--hair); }
+  .lang-flag{ width:20px; height:14px; border-radius:2px; overflow:hidden; box-shadow:0 0 0 1px var(--hair); display:block; }
+  .lang-caret{ font-size:9px; color:var(--mute); }
+  .lang-menu{ position:absolute; top:calc(100% + 10px); right:0; background:var(--ink2); border:1px solid var(--hair); border-radius:10px; padding:6px; display:none; min-width:150px; box-shadow:0 12px 30px -10px var(--shadow); z-index:20; }
+  .lang.open .lang-menu{ display:block; }
+  .lang-option{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:6px; font-size:13.5px; font-weight:500; cursor:pointer; }
+  .lang-option:hover{ background:var(--hair); }
+  .lang-option.active{ color:var(--coral); font-weight:700; }
+  .account-btn{ width:34px; height:34px; border-radius:50%; border:1.5px solid var(--hair); background:none; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--mute); opacity:.75; }
+  .account-btn:hover{ opacity:1; border-color:var(--mute); color:var(--paper); }
+
+  .hero{ position:relative; }
+  .hero-grid{ display:grid; grid-template-columns:1.05fr .95fr; gap:20px; align-items:center; position:relative; }
+  .hero .glow{ position:absolute; width:460px; height:460px; border-radius:50%; background:radial-gradient(circle, rgba(53,65,79,.10), transparent 70%); top:-140px; right:-100px; pointer-events:none; filter:blur(10px); z-index:0; }
+  .eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--mint); margin-bottom:22px; }
+  .eyebrow .bar{ width:22px; height:2px; background:var(--mint); }
+  h1{ font-size:52px; line-height:1.08; font-weight:800; letter-spacing:-.03em; }
+  .hero p.lead{ font-size:16px; color:var(--mute); max-width:440px; margin-top:24px; line-height:1.65; }
+  .hero-ctas{ display:flex; gap:14px; margin-top:32px; align-items:center; }
+  .btn-primary{ background:var(--paper); color:var(--ink); font-weight:700; font-size:14.5px; padding:16px 30px; border-radius:100px; display:inline-block; transition:.18s ease; box-shadow:0 6px 18px -8px var(--shadow); }
+  .btn-primary:hover{ background:var(--coral); color:var(--oncoral); transform:translateY(-2px); box-shadow:0 12px 26px -8px var(--shadow); }
+  .btn-ghost{ font-weight:600; font-size:14.5px; color:var(--paper); display:flex; align-items:center; gap:8px; transition:.15s ease; }
+  .btn-ghost:hover{ gap:12px; }
+  .btn-ghost .arrow{ width:32px; height:32px; border-radius:50%; border:1.5px solid var(--mute); display:flex; align-items:center; justify-content:center; transition:.15s ease; }
+  .btn-ghost:hover .arrow{ background:var(--paper); border-color:var(--paper); color:var(--ink); }
+
+  /* hero visual: uploaded photo OR default browser-fan illustration */
+  .hero-visual{ position:relative; }
+  .hero-visual .uploaded-img{ width:100%; border-radius:16px; object-fit:cover; box-shadow:0 30px 60px -20px var(--shadow); }
+  .hero-fan{ position:relative; height:340px; }
+  .hfan-card{ position:absolute; width:220px; height:270px; border-radius:14px; box-shadow:0 30px 60px -20px var(--shadow); border:1px solid var(--hair); background:var(--ink2); transition:transform .3s ease; }
+  .hero-fan:hover .hfan-card{ transform:translateY(-6px); }
+  .hfan-top{ height:26px; display:flex; align-items:center; gap:5px; padding:0 12px; }
+  .hfan-top span{ width:6px; height:6px; border-radius:50%; background:var(--dotcol); }
+  .hfan-body{ padding:14px; }
+  .hfan-line{ height:7px; border-radius:4px; background:var(--linecol); margin-bottom:7px; }
+  .hfan-line.short{ width:55%; }
+  .hfan-block{ height:56px; border-radius:8px; margin:12px 0; background:var(--linecol); }
+  .hfan-block.accent{ background:var(--coral); opacity:.9; }
+  .hfan-c1{ top:0; left:95px; transform:rotate(-8deg); z-index:1; }
+  .hfan-c2{ top:24px; left:0; transform:rotate(5deg); z-index:2; }
+  .hfan-c3{ top:46px; left:190px; transform:rotate(13deg); z-index:0; }
+
+  .icon-badge{ width:36px; height:36px; border-radius:10px; background:var(--ink); border:1px solid var(--hair); color:var(--coral); display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
+  .icon-badge svg{ width:18px; height:18px; }
+  .pstep-head{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .pstep-icon{ width:30px; height:30px; border-radius:8px; background:var(--ink); border:1px solid var(--hair); color:var(--coral); display:flex; align-items:center; justify-content:center; }
+  .pstep-icon svg{ width:15px; height:15px; }
+
+  .icon-picker{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-top:4px; }
+  .icon-picker button{ aspect-ratio:1; border:1px solid var(--hair); border-radius:8px; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#555; }
+  .icon-picker button svg{ width:16px; height:16px; }
+  .icon-picker button.on{ background:var(--paper); color:#fff; border-color:var(--paper); }
+
+  .strip{ border-top:1px solid var(--hair); border-bottom:1px solid var(--hair); padding:18px 0; }
+  .strip .track{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  .strip span{ font-size:14px; font-weight:600; color:var(--mute); }
+  .strip span b{ color:var(--paper); }
+
+  .section-head{ padding:0 0 24px; }
+  .section-head h2{ font-size:30px; font-weight:800; letter-spacing:-.02em; }
+  .section-head p{ font-size:14px; color:var(--mute); margin-top:6px; }
+
+  .bento{ display:grid; grid-template-columns:repeat(6,1fr); gap:14px; padding-bottom:20px; }
+  .bcard{ grid-column: span var(--span, 2); border-radius:14px; padding:24px; min-height:150px; display:flex; flex-direction:column; justify-content:space-between; background:var(--ink2); border:1px solid var(--hair); box-shadow:0 2px 10px -6px var(--shadow); transition:.18s ease; }
+  .bcard:hover{ box-shadow:0 14px 30px -12px var(--shadow); transform:translateY(-2px); }
+  .bcard .n{ font-size:12.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--coral); }
+  .bcard h3{ font-size:18px; font-weight:700; letter-spacing:-.01em; }
+  .bcard p{ font-size:12.5px; line-height:1.5; color:var(--mute); }
+
+  .process{ border-top:1px solid var(--hair); }
+  .process-grid{ display:grid; grid-template-columns:repeat(var(--stepcols,4),1fr); gap:16px; margin-top:24px; }
+  .pstep .num{ width:36px; height:36px; border-radius:50%; background:var(--ink); border:1.5px solid var(--coral); color:var(--coral); font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .pstep h4{ font-size:15px; font-weight:700; }
+  .pstep p{ font-size:12.5px; color:var(--mute); margin-top:6px; }
+
+  .pricing{ }
+  .plans{ display:grid; grid-template-columns:repeat(var(--plancols,3),1fr); gap:16px; margin-top:24px; }
+  .plan{ border-radius:16px; padding:28px 24px; border:1px solid var(--hair); background:var(--ink2); box-shadow:0 2px 10px -6px var(--shadow); transition:.18s ease; }
+  .plan:hover{ box-shadow:0 14px 30px -12px var(--shadow); transform:translateY(-2px); }
+  .plan.feat{ background:var(--coral); border:none; box-shadow:0 16px 34px -10px var(--shadow); }
+  .plan-cta{ display:block; text-align:center; margin-top:18px; padding:12px; border-radius:100px; font-weight:700; font-size:13.5px; background:var(--paper); color:var(--ink); cursor:pointer; transition:.18s ease; }
+  .plan-cta:hover{ background:var(--coral); color:var(--oncoral); transform:translateY(-2px); }
+  .plan.feat .plan-cta{ background:var(--oncoral-strong); color:var(--coral); }
+  .plan.feat .plan-cta:hover{ background:var(--paper); color:var(--ink); }
+  .add-tile{ border:1.5px dashed var(--hair); border-radius:14px; background:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; color:var(--mute); font-size:13px; font-weight:600; min-height:100px; box-shadow:none; }
+  .add-tile:hover{ border-color:var(--coral); color:var(--coral); background:var(--ink2); transform:none; }
+  .add-tile span{ font-size:26px; font-weight:400; line-height:1; }
+  .plan .t{ font-size:12px; font-weight:700; text-transform:uppercase; color:var(--mint); }
+  .plan.feat .t{ color:var(--oncoral); opacity:.85; }
+  .plan h3{ font-size:30px; font-weight:800; margin:8px 0 14px; }
+  .plan ul li{ font-size:13px; line-height:2.1; color:var(--mute); }
+  .plan.feat ul li{ color:var(--oncoral); opacity:.92; }
+  .plan ul li:before{ content:"— "; color:var(--coral); }
+  .plan.feat ul li:before{ color:var(--oncoral); opacity:.7; }
+
+  footer{ padding:30px 0 50px; border-top:1px solid var(--hair); display:flex; justify-content:space-between; font-size:13px; color:var(--mute); }
+
+  /* ---------- SHOWCASE CAROUSEL ---------- */
+  .showcase-head{ margin-bottom:18px; }
+  .showcase-wrap{ position:relative; }
+  .showcase-track{ display:flex; gap:14px; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
+  .showcase-track::-webkit-scrollbar{ display:none; height:0; }
+  .showcase-edge{ position:absolute; top:0; bottom:0; width:56px; display:flex; align-items:center; z-index:6; pointer-events:none; opacity:0; transition:.2s ease; }
+  .showcase-wrap:hover .showcase-edge{ opacity:1; }
+  .showcase-edge.left{ left:0; justify-content:flex-start; background:linear-gradient(90deg, var(--ink) 30%, transparent); }
+  .showcase-edge.right{ right:0; justify-content:flex-end; background:linear-gradient(270deg, var(--ink) 30%, transparent); }
+  .showcase-edge button{ pointer-events:auto; width:36px; height:36px; border-radius:50%; border:1px solid var(--hair); background:rgba(255,255,255,.92); color:var(--paper); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:.15s ease; box-shadow:0 4px 12px -4px var(--shadow); }
+  .showcase-edge button:hover{ background:var(--paper); color:var(--ink); }
+  .wcard{ flex:0 0 240px; border-radius:14px; overflow:hidden; border:1px solid var(--hair); background:var(--ink2); box-shadow:0 2px 10px -6px var(--shadow); position:relative; transition:.18s ease; }
+  .wcard:hover{ box-shadow:0 14px 30px -12px var(--shadow); transform:translateY(-2px); }
+  .wcard-link{ color:inherit; text-decoration:none; display:block; }
+  .wcard .wthumb{ height:150px; background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; }
+  .wcard .wthumb.p0{ background:linear-gradient(135deg,#EFE3DC,#E3D3C8); }
+  .wcard .wthumb.p1{ background:linear-gradient(135deg,#DCE6E9,#C9DADD); }
+  .wcard .wthumb.p2{ background:linear-gradient(135deg,#E6E1EC,#D6CEE0); }
+  .wcard .wthumb.p3{ background:linear-gradient(135deg,#DEE7DA,#C9D9C4); }
+  .wcard .wthumb.placeholder svg{ width:34px; height:34px; color:var(--paper); opacity:.35; }
+  .wcard .wcaption{ padding:12px 14px; font-size:13px; font-weight:600; }
+  .wcard-add{ flex:0 0 150px; border:1.5px dashed var(--hair); border-radius:14px; background:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; color:var(--mute); font-size:13px; font-weight:600; }
+  .wcard-add:hover{ border-color:var(--coral); color:var(--coral); background:var(--ink2); }
+  .wcard-add span{ font-size:24px; font-weight:400; line-height:1; }
+  .wcard-arrows{ display:none; position:absolute; top:8px; right:8px; gap:4px; z-index:5; }
+  body.admin .wcard:hover .wcard-arrows{ display:flex; }
+  .wcard-arrows button{ width:22px; height:22px; border:none; background:rgba(255,255,255,.92); color:var(--paper); font-size:11px; border-radius:5px; cursor:pointer; }
+
+  /* ---------- REVIEWS ---------- */
+  .reviews-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(230px,1fr)); gap:16px; padding-bottom:20px; }
+  .rcard{ border-radius:14px; padding:24px; background:var(--ink2); border:1px solid var(--hair); box-shadow:0 2px 10px -6px var(--shadow); transition:.18s ease; }
+  .rcard:hover{ box-shadow:0 14px 30px -12px var(--shadow); transform:translateY(-2px); }
+  .rcard .rquote-icon{ width:26px; height:26px; color:var(--coral); opacity:.5; margin-bottom:10px; }
+  .rcard p.rquote{ font-size:14px; line-height:1.6; color:var(--paper); }
+  .rcard .rmeta{ margin-top:16px; display:flex; flex-direction:column; }
+  .rcard .rname{ font-size:13.5px; font-weight:700; }
+  .rcard .rsite{ font-size:12px; color:var(--mute); }
+
+  @media (max-width:820px){
+    .hero-grid{ grid-template-columns:1fr; }
+    .hero-visual{ margin-top:30px; }
+    .bento{ grid-template-columns:repeat(2,1fr) !important; }
+    .bcard{ grid-column:span 1 !important; }
+    .plans{ grid-template-columns:1fr !important; }
+    .process-grid{ grid-template-columns:repeat(2,1fr) !important; }
+    h1{ font-size:36px; }
+    header nav{ gap:12px; }
+    header nav a.link{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="adminbar">
+  <div class="left"><span class="dot"></span><span>Admin mode — click any element to edit</span></div>
+  <div class="left">
+    <button class="hidden-btn" onclick="openHiddenDrawer()">Hidden elements (<span id="hiddenCount">0</span>)</button>
+    <button class="hidden-btn" onclick="undo()">Undo</button>
+    <button class="hidden-btn" onclick="resetToDefault()">Reset to defaults</button>
+    <button class="publish" onclick="openPublish()">Publish changes</button>
+    <button class="exit" onclick="exitAdmin()">Exit admin</button>
+  </div>
+</div>
+
+<div class="wrap" id="site"></div>
+
+<!-- LOGIN MODAL -->
+<div class="modal-backdrop" id="loginModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
+    <h3>Admin sign in</h3>
+    <p>Studio access only.</p>
+    <input type="email" placeholder="Email" id="loginEmail" value="admin@fieldnote.studio">
+    <input type="password" placeholder="Password" id="loginPass" value="••••••••">
+    <button class="go" onclick="doLogin()">Sign in</button>
+    <div class="note">Prototype mode — any credentials work. Real build uses Supabase Auth.</div>
+  </div>
+</div>
+
+<!-- EDIT PANEL -->
+<div id="panel-backdrop" onclick="closePanel()"></div>
+<div id="panel"></div>
+
+<!-- HIDDEN ELEMENTS DRAWER -->
+<div id="hidden-drawer">
+  <h4>Hidden elements — restore anytime</h4>
+  <div id="hiddenList"></div>
+</div>
+
+<!-- PUBLISH PREVIEW -->
+<div class="modal-backdrop" id="publish-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('publish-modal')">✕</button>
+    <h3>Publish changes</h3>
+    <p>This is the exact JSON payload that would be sent to Supabase (<code>page_elements</code> table) in the real build. For now it's saved to your browser's local storage.</p>
+    <pre id="publishJson"></pre>
+    <button class="go" onclick="confirmPublish()">Save now (local demo)</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   CONTENT MODEL
+   This whole object is what would live in Supabase as rows in `page_elements`.
+   Structure: sections -> ordered list of editable text/box items, each with
+   per-language content, style, hidden flag, and (for boxes) size/image.
+   ========================================================================= */
+const DEFAULT_DATA = {
+  _schema: 7, // bump this whenever the section/style structure changes shape — prevents old saved data from loading into a new layout model
+  lang: 'en',
+  sections: {
+    header: {
+      order: 0, hidden:false, margin:{mt:0,mb:0},
+      logo: { text:{en:'field·note',et:'field·note',ru:'field·note',sv:'field·note'}, style:{size:19,weight:800,italic:false,color:'#1E2126'}, hidden:false },
+      navLinks: [
+        {id:'nav1', text:{en:'Work',et:'Töö',ru:'Работы',sv:'Arbete'}, link:'work.html', hidden:false},
+        {id:'nav2', text:{en:'Services',et:'Teenused',ru:'Услуги',sv:'Tjänster'}, link:'services.html', hidden:false},
+        {id:'nav3', text:{en:'Pricing',et:'Hinnad',ru:'Цены',sv:'Priser'}, link:'pricing.html', hidden:false}
+      ],
+      ctaText: {en:'Get a quote',et:'Küsi hinnapakkumist',ru:'Узнать цену',sv:'Få en offert'},
+      ctaLink: 'quote.html'
+    },
+    hero: {
+      order:1, hidden:false, margin:{mt:60,mb:40},
+      eyebrow: { text:{en:'Fixed-price web studio',et:'Fikseeritud hinnaga veebistuudio',ru:'Веб-студия с фиксированной ценой',sv:'Webbstudio med fast pris'}, style:{size:13,weight:700,italic:false,color:'#4E6570'}, hidden:false },
+      h1: { text:{en:"Sites that don't look rented.",et:'Veebilehed, mis ei tundu renditud.',ru:'Сайты, которые не выглядят арендованными.',sv:'Sajter som inte ser hyrda ut.'}, style:{size:52,weight:800,italic:false,color:'#1E2126'}, hidden:false },
+      lead: { text:{en:"We design, build, and ship real websites for people who are tired of templates that look like everyone else's. Fixed scope, fixed price, no surprises.",et:'Disainime ja ehitame päris veebilehti inimestele, kes on väsinud mallidest. Fikseeritud maht, fikseeritud hind.',ru:'Мы проектируем и создаём настоящие сайты для тех, кто устал от шаблонов. Фиксированный объём, фиксированная цена.',sv:'Vi designar och bygger riktiga webbplatser för dig som är trött på mallar. Fast omfattning, fast pris.'}, style:{size:16,weight:400,italic:false,color:'#50565F'}, hidden:false },
+      ctaPrimary: {en:'Start a project',et:'Alusta projekti',ru:'Начать проект',sv:'Starta ett projekt'},
+      ctaLink: 'start-project.html',
+      visual: { image:null, height:380 }
+    },
+    strip: {
+      order:2, hidden:false, margin:{mt:20,mb:0},
+      items: [
+        {id:'s1', text:{en:'<b>40+</b> sites shipped',et:'<b>40+</b> valminud lehte',ru:'<b>40+</b> сайтов',sv:'<b>40+</b> lanserade sajter'}, hidden:false},
+        {id:'s2', text:{en:'<b>11 years</b> combined experience',et:'<b>11 aastat</b> kogemust',ru:'<b>11 лет</b> опыта',sv:'<b>11 år</b> erfarenhet'}, hidden:false},
+        {id:'s3', text:{en:'<b>EN · RU · SV</b> spoken',et:'<b>EN · RU · SV</b>',ru:'<b>EN · RU · SV</b>',sv:'<b>EN · RU · SV</b>'}, hidden:false},
+        {id:'s4', text:{en:'Fixed pricing, always',et:'Alati fikseeritud hind',ru:'Всегда фиксированная цена',sv:'Alltid fast pris'}, hidden:false}
+      ]
+    },
+    showcase: {
+      order:2.5, hidden:false, margin:{mt:50,mb:0}, autoplaySpeed:0.8,
+      heading: { text:{en:'Recent work',et:'Viimased tööd',ru:'Недавние работы',sv:'Senaste arbeten'}, style:{size:24,weight:800,italic:false,color:'#1E2126'}, hidden:false },
+      items: [
+        {id:'w1', order:0, hidden:false, image:null, icon:'cart', link:'', caption:{en:'Retail storefront',et:'E-pood',ru:'Интернет-магазин',sv:'Butik online'}},
+        {id:'w2', order:1, hidden:false, image:null, icon:'calendar', link:'', caption:{en:'Booking platform',et:'Broneerimisleht',ru:'Платформа бронирования',sv:'Bokningsplattform'}},
+        {id:'w3', order:2, hidden:false, image:null, icon:'users', link:'', caption:{en:'Community hub',et:'Kogukonna leht',ru:'Сайт сообщества',sv:'Communityssida'}},
+        {id:'w4', order:3, hidden:false, image:null, icon:'layout', link:'', caption:{en:'Portfolio site',et:'Portfoolio',ru:'Портфолио',sv:'Portfolio'}}
+      ]
+    },
+    bento: {
+      order:3, hidden:false, margin:{mt:60,mb:0},
+      heading: { text:{en:'Everything a site needs, none of it bolted on later.',et:'Kõik, mida veebileht vajab.',ru:'Всё, что нужно сайту.',sv:'Allt en sajt behöver.'}, style:{size:30,weight:800,italic:false,color:'#1E2126'}, hidden:false },
+      sub: { text:{en:'Design, build, and content, handled as one job.',et:'Disain, arendus ja sisu — üks tellimus.',ru:'Дизайн, разработка и контент — одна задача.',sv:'Design, bygg och innehåll — ett jobb.'}, style:{size:14,weight:400,italic:false,color:'#50565F'}, hidden:false },
+      cards: [
+        {id:'b1', order:0, hidden:false, span:2, bg:null, image:null, icon:'palette', n:{en:'Design',et:'Disain',ru:'Дизайн',sv:'Design'}, title:{en:'Custom identity & layout',et:'Unikaalne identiteet',ru:'Уникальный дизайн',sv:'Unik identitet'}, desc:{en:'Type, color, and structure built from your brief — never a theme.',et:'Kirjatüüp, värv ja struktuur sinu briifi järgi.',ru:'Шрифт, цвет и структура по вашему брифу.',sv:'Typsnitt, färg och struktur efter ditt brief.'}},
+        {id:'b2', order:1, hidden:false, span:2, bg:null, image:null, icon:'wrench', n:{en:'Build',et:'Arendus',ru:'Разработка',sv:'Bygg'}, title:{en:'Accounts & payments',et:'Kontod ja maksed',ru:'Аккаунты и платежи',sv:'Konton och betalningar'}, desc:{en:'Secure logins, bookings, and Stripe integration when you need it.',et:'Turvaline sisselogimine, broneeringud, Stripe.',ru:'Безопасный вход, бронирования, Stripe.',sv:'Säker inloggning, bokningar, Stripe.'}},
+        {id:'b3', order:2, hidden:false, span:2, bg:null, image:null, icon:'globe', n:{en:'Content',et:'Sisu',ru:'Контент',sv:'Innehåll'}, title:{en:'Multilingual copy',et:'Mitmekeelne sisu',ru:'Многоязычный контент',sv:'Flerspråkigt innehåll'}, desc:{en:'English, Russian, and Swedish written in your voice.',et:'Inglise, vene ja rootsi keeles.',ru:'На английском, русском и шведском.',sv:'Engelska, ryska och svenska.'}},
+        {id:'b4', order:3, hidden:false, span:2, bg:null, image:null, icon:'bolt', n:{en:'Speed',et:'Kiirus',ru:'Скорость',sv:'Hastighet'}, title:{en:'7–14 day delivery',et:'7–14 päeva',ru:'7–14 дней',sv:'7–14 dagar'}, desc:{en:'Fixed timeline, agreed before anything starts.',et:'Fikseeritud ajakava.',ru:'Фиксированные сроки.',sv:'Fast tidsplan.'}},
+        {id:'b5', order:4, hidden:false, span:2, bg:null, image:null, icon:'chart', n:{en:'Track record',et:'Kogemus',ru:'Опыт',sv:'Meritlista'}, title:{en:'40+ sites shipped',et:'40+ valminud lehte',ru:'40+ сайтов',sv:'40+ lanserade sajter'}, desc:{en:'Across retail, services, and gaming communities.',et:'Kaubandus, teenused, kogukonnad.',ru:'Ритейл, услуги, сообщества.',sv:'Handel, tjänster, communities.'}},
+        {id:'b6', order:5, hidden:false, span:2, bg:null, image:null, icon:'tag', n:{en:'Pricing',et:'Hinnad',ru:'Цены',sv:'Priser'}, title:{en:'Fixed, always',et:'Alati fikseeritud',ru:'Всегда фиксировано',sv:'Alltid fast'}, desc:{en:'One price, quoted up front — no surprises later.',et:'Üks hind ette teada.',ru:'Одна цена заранее.',sv:'Ett pris i förväg.'}}
+      ]
+    },
+    process: {
+      order:4, hidden:false, margin:{mt:60,mb:60},
+      heading: { text:{en:'How a project actually runs.',et:'Kuidas projekt kulgeb.',ru:'Как проходит проект.',sv:'Hur ett projekt går till.'}, style:{size:30,weight:800,italic:false,color:'#1E2126'}, hidden:false },
+      sub: { text:{en:'Four stages, no scope creep in between.',et:'Neli etappi.',ru:'Четыре этапа.',sv:'Fyra steg.'}, style:{size:14,weight:400,italic:false,color:'#50565F'}, hidden:false },
+      steps: [
+        {id:'p1', order:0, hidden:false, icon:'clipboard', title:{en:'Brief',et:'Briif',ru:'Бриф',sv:'Brief'}, desc:{en:'Scope, content, and budget agreed up front.',et:'Maht, sisu ja eelarve ette kokku lepitud.',ru:'Объём, контент и бюджет заранее.',sv:'Omfattning, innehåll och budget i förväg.'}},
+        {id:'p2', order:1, hidden:false, icon:'palette', title:{en:'Design',et:'Disain',ru:'Дизайн',sv:'Design'}, desc:{en:'Layout and identity, reviewed with you before build starts.',et:'Paigutus ja identiteet enne arendust.',ru:'Макет и стиль перед разработкой.',sv:'Layout och identitet innan bygget.'}},
+        {id:'p3', order:2, hidden:false, icon:'wrench', title:{en:'Build',et:'Arendus',ru:'Разработка',sv:'Bygg'}, desc:{en:'Development, content, and testing.',et:'Arendus, sisu, testimine.',ru:'Разработка, контент, тестирование.',sv:'Utveckling, innehåll, tester.'}},
+        {id:'p4', order:3, hidden:false, icon:'rocket', title:{en:'Launch',et:'Avaldamine',ru:'Запуск',sv:'Lansering'}, desc:{en:'Live site, handover, and a 30-day support window.',et:'Live leht ja 30 päeva tuge.',ru:'Публикация и 30 дней поддержки.',sv:'Live sajt och 30 dagars support.'}}
+      ]
+    },
+    pricing: {
+      order:5, hidden:false, margin:{mt:0,mb:0},
+      heading: { text:{en:'Pick a package, or ask for a custom quote.',et:'Vali pakett või küsi hinnapakkumist.',ru:'Выберите пакет или запросите цену.',sv:'Välj ett paket eller be om offert.'}, style:{size:30,weight:800,italic:false,color:'#1E2126'}, hidden:false },
+      plans: [
+        {id:'pl1', order:0, hidden:false, featured:false, t:{en:'Starter',et:'Alustav',ru:'Стартовый',sv:'Start'}, price:'€450', ctaText:{en:'Choose Starter',et:'Vali Alustav',ru:'Выбрать Стартовый',sv:'Välj Start'}, features:[{en:'Single page',et:'Üks leht',ru:'Одна страница',sv:'En sida'},{en:'3 day delivery',et:'3 päeva',ru:'3 дня',sv:'3 dagar'},{en:'1 revision round',et:'1 parandusring',ru:'1 правка',sv:'1 revidering'}]},
+        {id:'pl2', order:1, hidden:false, featured:true, t:{en:'Standard',et:'Standard',ru:'Стандарт',sv:'Standard'}, price:'€1,200', ctaText:{en:'Choose Standard',et:'Vali Standard',ru:'Выбрать Стандарт',sv:'Välj Standard'}, features:[{en:'Up to 8 pages',et:'Kuni 8 lehte',ru:'До 8 страниц',sv:'Upp till 8 sidor'},{en:'CMS-editable content',et:'CMS-iga muudetav',ru:'Редактируемый контент',sv:'CMS-redigerbart'},{en:'3 revision rounds',et:'3 parandusringi',ru:'3 правки',sv:'3 revideringar'}]},
+        {id:'pl3', order:2, hidden:false, featured:false, t:{en:'Full Build',et:'Täislahendus',ru:'Полный пакет',sv:'Fullständig'}, price:'€2,900+', ctaText:{en:'Choose Full Build',et:'Vali Täislahendus',ru:'Выбрать Полный',sv:'Välj Fullständig'}, features:[{en:'Accounts & payments',et:'Kontod ja maksed',ru:'Аккаунты и платежи',sv:'Konton och betalning'},{en:'Database backend',et:'Andmebaas',ru:'База данных',sv:'Databas'},{en:'Priority support',et:'Prioriteetne tugi',ru:'Приоритетная поддержка',sv:'Prioriterad support'}]}
+      ]
+    },
+    reviews: {
+      order:5.5, hidden:false, margin:{mt:60,mb:0},
+      heading: { text:{en:'What clients say',et:'Mida kliendid ütlevad',ru:'Отзывы клиентов',sv:'Vad kunder säger'}, style:{size:30,weight:800,italic:false,color:'#1E2126'}, hidden:false },
+      items: [
+        {id:'r1', order:0, hidden:false, name:{en:'Anna K.',et:'Anna K.',ru:'Анна К.',sv:'Anna K.'}, site:{en:'Nordic Bakery',et:'Nordic Bakery',ru:'Nordic Bakery',sv:'Nordic Bakery'}, quote:{en:'Delivered exactly on the timeline they quoted, no surprises at the end.',et:'Kõik valmis täpselt tähtajaks, ilma üllatusteta.',ru:'Всё сдано точно в срок, без сюрпризов.',sv:'Levererat exakt enligt tidsplan, inga överraskningar.'}},
+        {id:'r2', order:1, hidden:false, name:{en:'Marek T.',et:'Marek T.',ru:'Марек Т.',sv:'Marek T.'}, site:{en:'Baltic Fitness Studio',et:'Baltic Fitness Studio',ru:'Baltic Fitness Studio',sv:'Baltic Fitness Studio'}, quote:{en:'Clear communication throughout, and the site actually looks like us.',et:'Selge suhtlus kogu protsessi vältel ja tulemus näeb välja nagu meie.',ru:'Понятная коммуникация на всех этапах, сайт получился действительно наш.',sv:'Tydlig kommunikation hela vägen, och sajten känns verkligen som oss.'}},
+        {id:'r3', order:2, hidden:false, name:{en:'Liis P.',et:'Liis P.',ru:'Лийс П.',sv:'Liis P.'}, site:{en:'Tallinn Yoga Room',et:'Tallinn Yoga Room',ru:'Tallinn Yoga Room',sv:'Tallinn Yoga Room'}, quote:{en:'Worth it just for how easy booking has become for our clients.',et:'Väärt juba selle pärast, kui lihtsaks broneerimine meie klientidele muutus.',ru:'Уже стоит того — насколько проще стало бронирование для клиентов.',sv:'Värt det bara för hur enkelt bokning blivit för våra kunder.'}}
+      ]
+    },
+    footer: {
+      order:6, hidden:false, margin:{mt:0,mb:0},
+      copy: { text:{en:'© Fieldnote Studio',et:'© Fieldnote Studio',ru:'© Fieldnote Studio',sv:'© Fieldnote Studio'}, style:{size:13,weight:400,italic:false,color:'#50565F'}, hidden:false }
+    }
+  }
+};
+
+let siteData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+try {
+  const saved = localStorage.getItem('fieldnote_content');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed._schema === DEFAULT_DATA._schema) {
+      siteData = parsed;
+    } else {
+      localStorage.removeItem('fieldnote_content'); // stale shape from before a structural change — discard, don't merge
+    }
+  }
+} catch(e){}
+
+let isAdmin = false;
+let currentEdit = null; // {kind, path}
+
+function t(field){
+  if (!field) return '';
+  return field[siteData.lang] || field.en || '';
+}
+
+/* ---------------- ICON LIBRARY (inline SVG, no external requests) ---------------- */
+const ICONS = {
+  palette: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a10 10 0 1 0 0 20c1.5 0 2-1 2-2s-.5-1.5-1-2 .5-2 2-2h1a4 4 0 0 0 4-4 8 8 0 0 0-8-10z"/><circle cx="7.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="11" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="9" r="1.2" fill="currentColor" stroke="none"/></svg>',
+  wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4L21 6l-3-3-3.3 3.3z"/></svg>',
+  globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 4 6 4 9s-1.5 6.4-4 9c-2.5-2.6-4-6-4-9s1.5-6.4 4-9z"/></svg>',
+  bolt: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>',
+  chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>',
+  tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12.6 2H4v8.6L14 20.6a2 2 0 0 0 2.8 0l5.8-5.8a2 2 0 0 0 0-2.8L12.6 2z"/><circle cx="8" cy="7" r="1.3" fill="currentColor" stroke="none"/></svg>',
+  clipboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M8.5 12h7M8.5 16h5"/></svg>',
+  rocket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.5 3.5c2 0 6 1.5 6 6.5s-6 10-6 10-2-.5-4-2.5-2.5-4-2.5-4 5.5-4 6.5-10z"/><path d="M9 16l-4 1 1-4M15 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/></svg>',
+  layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 2 8l10 6 10-6-10-6zM2 14l10 6 10-6M2 11l10 6 10-6"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3z"/><path d="M9 12l2 2 4-4"/></svg>',
+  code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 8 3 12l5 4M16 8l5 4-5 4M14 5l-4 14"/></svg>',
+  mobile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></svg>',
+  cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none"/><circle cx="17" cy="20" r="1.4" fill="currentColor" stroke="none"/><path d="M2 3h3l2.5 12h10L20 7H6"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-4.5-9.5-9C.5 8 2 4 6 4c2.3 0 3.7 1.3 4.5 2.5 0 0 .5-.5 1.5-.5C15.5 6 20 8.5 20 12c0 4.5-8 9-8 9z"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3 6.5 7 1-5 5 1.2 7L12 18l-6.2 3.5L7 14 2 9l7-1z"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h4l1.5 4.5-2.5 2a12 12 0 0 0 5.5 5.5l2-2.5L20 15v4a1 1 0 0 1-1 1C10.5 20 4 13.5 4 5a1 1 0 0 1 1-1z"/></svg>',
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg>',
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 20c.2-2.6 1.8-4.6 4-5.4"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.5-4.5"/></svg>',
+  cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 18a4.5 4.5 0 0 1-.5-9 5.5 5.5 0 0 1 10.7-1.7A4 4 0 0 1 17 18z"/></svg>',
+  target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>',
+  award: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="5.5"/><path d="M9 12.5 7 21l5-2.5L17 21l-2-8.5"/></svg>',
+  bulb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4"/><path d="M12 2a6.5 6.5 0 0 0-3.5 12c.7.5 1 1 1 2h5c0-1 .3-1.5 1-2A6.5 6.5 0 0 0 12 2z"/></svg>',
+  message: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v11H8l-4 4z"/></svg>',
+  quote: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M4 12c0-4 2.5-7 6-8l1 2c-2.3.9-3.5 2.6-3.7 4.3.4-.2.9-.3 1.4-.3 2 0 3.3 1.4 3.3 3.2s-1.5 3.3-3.5 3.3C5.8 16.5 4 14.5 4 12zm10 0c0-4 2.5-7 6-8l1 2c-2.3.9-3.5 2.6-3.7 4.3.4-.2.9-.3 1.4-.3 2 0 3.3 1.4 3.3 3.2s-1.5 3.3-3.5 3.3c-2.7 0-4.5-2-4.5-4.5z"/></svg>',
+  layout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg>',
+  database: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>'
+};
+function iconSvg(key){ return ICONS[key] || ICONS.layers; }
+
+/* ---------------- DEFAULT HERO ILLUSTRATION (fanned browser cards) ----------------
+   Shown when no hero photo has been uploaded. Pure CSS/SVG, no external image. */
+function heroIllustration(){
+  return `
+  <div class="hero-fan">
+    <div class="hfan-card hfan-c3"><div class="hfan-top"><span></span><span></span><span></span></div><div class="hfan-body"><div class="hfan-line" style="width:70%"></div><div class="hfan-block"></div><div class="hfan-line"></div><div class="hfan-line short"></div></div></div>
+    <div class="hfan-card hfan-c1"><div class="hfan-top"><span></span><span></span><span></span></div><div class="hfan-body"><div class="hfan-line" style="width:60%"></div><div class="hfan-block accent"></div><div class="hfan-line"></div><div class="hfan-line short"></div></div></div>
+    <div class="hfan-card hfan-c2"><div class="hfan-top"><span></span><span></span><span></span></div><div class="hfan-body"><div class="hfan-line" style="width:50%"></div><div class="hfan-block"></div><div class="hfan-line"></div><div class="hfan-line short"></div></div></div>
+  </div>`;
+}
+
+/* ---------------- RENDER ---------------- */
+function render(){
+  const s = siteData.sections;
+  let html = '';
+
+  if (!s.header.hidden) html += renderHeader();
+  if (!s.hero.hidden) html += renderHero();
+  if (!s.strip.hidden) html += renderStrip();
+  if (!s.showcase.hidden) html += renderShowcase();
+  if (!s.bento.hidden) html += renderBento();
+  if (!s.process.hidden) html += renderProcess();
+  if (!s.pricing.hidden) html += renderPricing();
+  if (!s.reviews.hidden) html += renderReviews();
+  if (!s.footer.hidden) html += renderFooter();
+
+  document.getElementById('site').innerHTML = html;
+  updateHiddenCount();
+  bindPencils();
+  bindShowcaseHover();
+  startShowcaseAutoplay();
+}
+
+function marginStyle(m){ return `margin-top:${m.mt}px;margin-bottom:${m.mb}px;`; }
+
+function renderHeader(){
+  const h = siteData.sections.header;
+  const navHtml = h.navLinks.filter(n=>!n.hidden).map(n =>
+    `<a class="link editable" data-kind="navlink" data-id="${n.id}" data-editpath="header.navLinks[${n.id}].text" href="${n.link}">${t(n.text)}<span class="edit-pencil">✎</span></a>`
+  ).join('');
+  return `
+  <div class="section-shell" style="${marginStyle(h.margin)}">
+    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('header')">⚙</div>`:''}
+    <header>
+      <div class="logo editable" data-kind="text" data-path="header.logo" data-editpath="header.logo.text" style="font-size:${h.logo.style.size}px;font-weight:${h.logo.style.weight};font-style:${h.logo.style.italic?'italic':'normal'};color:${h.logo.style.color}">
+        ${t(h.logo.text)}<span class="edit-pencil">✎</span>
+      </div>
+      <nav>
+        ${navHtml}
+        <div class="lang" id="langSwitch">
+          <button class="lang-btn" onclick="document.getElementById('langSwitch').classList.toggle('open')">
+            <span class="lang-flag">${flagSvg(siteData.lang)}</span><span class="lang-caret">▾</span>
+          </button>
+          <div class="lang-menu">
+            ${['et','en','ru','sv'].map(l=>`<div class="lang-option ${siteData.lang===l?'active':''}" onclick="setLang('${l}')"><span class="lang-flag">${flagSvg(l)}</span>${langName(l)}</div>`).join('')}
+          </div>
+        </div>
+        <button class="account-btn" onclick="openModal('loginModal')" aria-label="Account">${personIcon()}</button>
+        <a class="cta editable" data-kind="headerCta" href="${h.ctaLink}">${t(h.ctaText)}<span class="edit-pencil">✎</span></a>
+      </nav>
+    </header>
+  </div>`;
+}
+
+function renderHero(){
+  const h = siteData.sections.hero;
+  return `
+  <div class="section-shell" style="${marginStyle(h.margin)}">
+    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('hero')">⚙</div>`:''}
+    <section class="hero">
+      <div class="glow"></div>
+      <div class="hero-grid">
+        <div>
+          ${!h.eyebrow.hidden?`<div class="eyebrow editable" data-kind="text" data-path="hero.eyebrow" data-editpath="hero.eyebrow.text" style="font-size:${h.eyebrow.style.size}px;font-weight:${h.eyebrow.style.weight};color:${h.eyebrow.style.color}"><span class="bar"></span>${t(h.eyebrow.text)}<span class="edit-pencil">✎</span></div>`:''}
+          ${!h.h1.hidden?`<h1 class="editable" data-kind="text" data-path="hero.h1" data-editpath="hero.h1.text" style="font-size:${h.h1.style.size}px;font-weight:${h.h1.style.weight};font-style:${h.h1.style.italic?'italic':'normal'};color:${h.h1.style.color}">${t(h.h1.text)}<span class="edit-pencil">✎</span></h1>`:''}
+          ${!h.lead.hidden?`<p class="lead editable" data-kind="text" data-path="hero.lead" data-editpath="hero.lead.text" style="font-size:${h.lead.style.size}px;color:${h.lead.style.color}">${t(h.lead.text)}<span class="edit-pencil">✎</span></p>`:''}
+          <div class="hero-ctas">
+            <a class="btn-primary editable" data-kind="heroCta" href="${h.ctaLink}">${t(h.ctaPrimary)}<span class="edit-pencil">✎</span></a>
+          </div>
+        </div>
+        <div class="hero-visual">
+          ${h.visual.image
+            ? `<img class="uploaded-img" style="height:${h.visual.height}px;" src="${h.visual.image}">`
+            : heroIllustration()}
+        </div>
+      </div>
+    </section>
+  </div>`;
+}
+
+function renderStrip(){
+  const s = siteData.sections.strip;
+  const items = s.items.filter(i=>!i.hidden).map(i =>
+    `<span class="editable" data-kind="stripItem" data-id="${i.id}">${t(i.text)}<span class="edit-pencil">✎</span></span>`
+  ).join('');
+  return `<div class="section-shell" style="${marginStyle(s.margin)}">
+    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('strip')">⚙</div>`:''}
+    <div class="strip"><div class="track">${items}</div></div>
+  </div>`;
+}
+
+function renderBento(){
+  const b = siteData.sections.bento;
+  const cards = [...b.cards].filter(c=>!c.hidden).sort((a,c)=>a.order-c.order).map((c,idx,arr) => `
+    <div class="bcard box-wrap editable" data-kind="bentoCard" data-id="${c.id}" style="--span:${c.span}; ${c.bg?`background:${c.bg};`:''} ${c.image?`background-image:url(${c.image});background-size:cover;background-position:center;`:''}">
+      ${isAdmin?`<div class="reorder-controls">
+        <button onclick="moveItem('bento.cards','${c.id}',-1)" ${idx===0?'disabled':''}>↑</button>
+        <button onclick="moveItem('bento.cards','${c.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
+      </div>`:''}
+      <div>
+        <div class="icon-badge">${iconSvg(c.icon)}</div>
+        <div class="n" data-editpath="bento.cards[${c.id}].n">${t(c.n)}</div>
+      </div>
+      <div><h3 data-editpath="bento.cards[${c.id}].title">${t(c.title)}</h3><p data-editpath="bento.cards[${c.id}].desc">${t(c.desc)}</p></div>
+      <span class="edit-pencil">✎</span>
+    </div>`).join('');
+  const addTile = isAdmin ? `<div class="bcard add-tile" style="--span:2;" onclick="addBentoCard()"><span>+</span><div>Add card</div></div>` : '';
+  const notHidden = (o)=>!o.hidden;
+  return `<div class="section-shell" style="${marginStyle(b.margin)}">
+    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('bento')">⚙</div>`:''}
+    <div class="section-head">
+      ${notHidden(b.heading)?`<h2 class="editable" data-kind="text" data-path="bento.heading" data-editpath="bento.heading.text" style="font-size:${b.heading.style.size}px;font-weight:${b.heading.style.weight};color:${b.heading.style.color}">${t(b.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
+      ${notHidden(b.sub)?`<p class="editable" data-kind="text" data-path="bento.sub" data-editpath="bento.sub.text" style="font-size:${b.sub.style.size}px;color:${b.sub.style.color}">${t(b.sub.text)}<span class="edit-pencil">✎</span></p>`:''}
+    </div>
+    <div class="bento">${cards}${addTile}</div>
+  </div>`;
+}
+function addBentoCard(){
+  pushHistory();
+  const b = siteData.sections.bento;
+  const maxOrder = b.cards.reduce((m,c)=>Math.max(m,c.order),-1);
+  const id = 'b'+Date.now();
+  b.cards.push({id, order:maxOrder+1, hidden:false, span:2, bg:null, image:null, icon:'layers',
+    n:{en:'New',et:'Uus',ru:'Новое',sv:'Nytt'},
+    title:{en:'New capability',et:'Uus võimekus',ru:'Новая функция',sv:'Ny funktion'},
+    desc:{en:'Describe what this covers.',et:'Kirjelda seda.',ru:'Опишите это.',sv:'Beskriv detta.'}});
+  saveLocal(); render();
+}
+
+function renderProcess(){
+  const p = siteData.sections.process;
+  const visibleSteps = [...p.steps].filter(s=>!s.hidden).sort((a,b)=>a.order-b.order);
+  const steps = visibleSteps.map((s,idx,arr) => `
+    <div class="pstep box-wrap editable" data-kind="processStep" data-id="${s.id}">
+      ${isAdmin?`<div class="reorder-controls">
+        <button onclick="moveItem('process.steps','${s.id}',-1)" ${idx===0?'disabled':''}>↑</button>
+        <button onclick="moveItem('process.steps','${s.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
+      </div>`:''}
+      <div class="pstep-head">
+        <div class="num">${idx+1}</div>
+        <div class="pstep-icon">${iconSvg(s.icon)}</div>
+      </div>
+      <h4 data-editpath="process.steps[${s.id}].title">${t(s.title)}</h4><p data-editpath="process.steps[${s.id}].desc">${t(s.desc)}</p>
+      <span class="edit-pencil">✎</span>
+    </div>`).join('');
+  const addTile = isAdmin ? `<div class="pstep add-tile" onclick="addProcessStep()"><span>+</span><div>Add step</div></div>` : '';
+  const colCount = visibleSteps.length + (isAdmin?1:0);
+  return `<div class="section-shell" style="${marginStyle(p.margin)}">
+    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('process')">⚙</div>`:''}
+    <div class="process">
+      <div class="section-head" style="padding-bottom:0">
+        ${!p.heading.hidden?`<h2 class="editable" data-kind="text" data-path="process.heading" data-editpath="process.heading.text" style="font-size:${p.heading.style.size}px;font-weight:${p.heading.style.weight};color:${p.heading.style.color}">${t(p.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
+        ${!p.sub.hidden?`<p class="editable" data-kind="text" data-path="process.sub" data-editpath="process.sub.text" style="font-size:${p.sub.style.size}px;color:${p.sub.style.color}">${t(p.sub.text)}<span class="edit-pencil">✎</span></p>`:''}
+      </div>
+      <div class="process-grid" style="--stepcols:${Math.max(colCount,1)};">${steps}${addTile}</div>
+    </div>
+  </div>`;
+}
+function addProcessStep(){
+  pushHistory();
+  const p = siteData.sections.process;
+  const maxOrder = p.steps.reduce((m,s)=>Math.max(m,s.order),-1);
+  const id = 'p'+Date.now();
+  p.steps.push({id, order:maxOrder+1, hidden:false, icon:'layers',
+    title:{en:'New step',et:'Uus samm',ru:'Новый этап',sv:'Nytt steg'},
+    desc:{en:'Describe this stage.',et:'Kirjelda seda etappi.',ru:'Опишите этап.',sv:'Beskriv detta steg.'}});
+  saveLocal(); render();
+}
+
+function renderPricing(){
+  const pr = siteData.sections.pricing;
+  const visiblePlans = [...pr.plans].filter(p=>!p.hidden).sort((a,b)=>a.order-b.order);
+  const plans = visiblePlans.map((p,idx,arr) => `
+    <div class="plan box-wrap editable ${p.featured?'feat':''}" data-kind="plan" data-id="${p.id}">
+      ${isAdmin?`<div class="reorder-controls">
+        <button onclick="moveItem('pricing.plans','${p.id}',-1)" ${idx===0?'disabled':''}>↑</button>
+        <button onclick="moveItem('pricing.plans','${p.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
+      </div>`:''}
+      <div class="t" data-editpath="pricing.plans[${p.id}].t">${t(p.t)}</div>
+      <h3 data-editpath="pricing.plans[${p.id}].price">${p.price}</h3>
+      <ul>${p.features.map((f,fi)=>`<li data-editpath="pricing.plans[${p.id}].features.${fi}">${t(f)}</li>`).join('')}</ul>
+      <a class="plan-cta ${p.featured?'feat':''}" data-editpath="pricing.plans[${p.id}].ctaText">${t(p.ctaText)}</a>
+      <span class="edit-pencil">✎</span>
+    </div>`).join('');
+  const addTile = isAdmin ? `<div class="plan add-tile" onclick="addPlan()"><span>+</span><div>Add package</div></div>` : '';
+  const colCount = visiblePlans.length + (isAdmin?1:0);
+  return `<div class="section-shell" style="${marginStyle(pr.margin)}">
+    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('pricing')">⚙</div>`:''}
+    <div class="pricing">
+      <div class="section-head">
+        ${!pr.heading.hidden?`<h2 class="editable" data-kind="text" data-path="pricing.heading" data-editpath="pricing.heading.text" style="font-size:${pr.heading.style.size}px;font-weight:${pr.heading.style.weight};color:${pr.heading.style.color}">${t(pr.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
+      </div>
+      <div class="plans" style="--plancols:${Math.max(colCount,1)};">${plans}${addTile}</div>
+    </div>
+  </div>`;
+}
+function addPlan(){
+  pushHistory();
+  const pr = siteData.sections.pricing;
+  const maxOrder = pr.plans.reduce((m,p)=>Math.max(m,p.order),-1);
+  const id = 'pl'+Date.now();
+  pr.plans.push({id, order:maxOrder+1, hidden:false, featured:false,
+    t:{en:'New Package',et:'Uus pakett',ru:'Новый пакет',sv:'Nytt paket'},
+    price:'€0', ctaText:{en:'Choose this',et:'Vali see',ru:'Выбрать',sv:'Välj detta'},
+    features:[{en:'Feature one',et:'',ru:'',sv:''}]});
+  saveLocal(); render();
+}
+
+function renderShowcase(){
+  const w = siteData.sections.showcase;
+  const visible = [...w.items].filter(i=>!i.hidden).sort((a,b)=>a.order-b.order);
+  const palette = ['p0','p1','p2','p3'];
+  const cardsOnce = visible.map((it,idx,arr) => {
+    const href = isAdmin ? 'javascript:void(0)' : (it.link || '#');
+    const targetAttr = isAdmin ? '' : ' target="_blank" rel="noopener"';
+    return `
+    <div class="wcard" data-kind="showcaseItem" data-id="${it.id}">
+      ${isAdmin?`<div class="wcard-arrows">
+        <button onclick="moveItem('showcase.items','${it.id}',-1)" ${idx===0?'disabled':''}>◀</button>
+        <button onclick="moveItem('showcase.items','${it.id}',1)" ${idx===arr.length-1?'disabled':''}>▶</button>
+        <button onclick="openShowcasePanel('${it.id}')">✎</button>
+      </div>`:''}
+      <a class="wcard-link" href="${href}"${targetAttr}>
+        <div class="wthumb ${it.image?'':'placeholder '+palette[idx%4]}" style="${it.image?`background-image:url(${it.image})`:''}">
+          ${it.image?'':iconSvg(it.icon||'layout')}
+        </div>
+        <div class="wcaption" data-editpath="showcase.items[${it.id}].caption">${t(it.caption)}</div>
+      </a>
+    </div>`;
+  }).join('');
+  const addTile = isAdmin ? `<div class="wcard-add" onclick="addShowcaseItem()"><span>+</span><div>Add work</div></div>` : '';
+  // Public view duplicates the set once so the loop wraps seamlessly — the
+  // seam is invisible because both halves are identical. Admin view stays
+  // single-copy (plus the add tile) so editing controls aren't doubled up.
+  const trackContent = isAdmin ? (cardsOnce + addTile) : (cardsOnce + cardsOnce);
+  return `<div class="section-shell" style="${marginStyle(w.margin)}">
+    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('showcase')">⚙</div>`:''}
+    <div class="showcase-head">
+      ${!w.heading.hidden?`<h2 class="editable" data-kind="text" data-path="showcase.heading" data-editpath="showcase.heading.text" style="font-size:${w.heading.style.size}px;font-weight:${w.heading.style.weight};color:${w.heading.style.color}">${t(w.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
+    </div>
+    <div class="showcase-wrap">
+      <div class="showcase-edge left"><button onclick="nudgeShowcase(-1)" aria-label="Scroll left">‹</button></div>
+      <div class="showcase-track" id="showcaseTrack" data-loop="${isAdmin?'0':'1'}">${trackContent}</div>
+      <div class="showcase-edge right"><button onclick="nudgeShowcase(1)" aria-label="Scroll right">›</button></div>
+    </div>
+  </div>`;
+}
+
+/* Slow continuous autoplay — loops back to the start on reaching the end
+   (always the same direction), pausing on hover. Manual arrow clicks give
+   it a bigger nudge and pause autoplay briefly. */
+let showcaseTimer = null;
+let showcasePausedUntil = 0;
+function startShowcaseAutoplay(){
+  stopShowcaseAutoplay();
+  showcaseTimer = setInterval(()=>{
+    const el = document.getElementById('showcaseTrack');
+    if (!el || Date.now() < showcasePausedUntil) return;
+    const speed = siteData.sections.showcase.autoplaySpeed ?? 0.8;
+    if (speed <= 0) return;
+    if (el.dataset.loop === '1'){
+      // Content is duplicated once (see renderShowcase), so wrapping at the
+      // halfway point is invisible — the pixels at scrollLeft=0 and
+      // scrollLeft=singleWidth are identical, giving a true seamless loop.
+      const singleWidth = el.scrollWidth / 2;
+      if (singleWidth <= el.clientWidth) return; // not enough content to loop meaningfully
+      el.scrollLeft += speed;
+      if (el.scrollLeft >= singleWidth) el.scrollLeft -= singleWidth;
+    } else {
+      // Admin view: single copy, so just restart at the beginning.
+      const max = el.scrollWidth - el.clientWidth;
+      if (max <= 0) return;
+      if (el.scrollLeft >= max - 1) el.scrollLeft = 0;
+      else el.scrollLeft += speed;
+    }
+  }, 20);
+}
+function stopShowcaseAutoplay(){ if (showcaseTimer) clearInterval(showcaseTimer); showcaseTimer = null; }
+function bindShowcaseHover(){
+  const el = document.getElementById('showcaseTrack');
+  if (!el) return;
+  el.addEventListener('mouseenter', ()=>{ showcasePausedUntil = Infinity; });
+  el.addEventListener('mouseleave', ()=>{ showcasePausedUntil = 0; });
+}
+function nudgeShowcase(dir){
+  const el = document.getElementById('showcaseTrack');
+  if (el) el.scrollBy({left: dir*260, behavior:'smooth'});
+  showcasePausedUntil = Date.now() + 2500; // brief pause so the manual nudge isn't immediately fought by autoplay
+}
+
+function addShowcaseItem(){
+  pushHistory();
+  const w = siteData.sections.showcase;
+  const maxOrder = w.items.reduce((m,i)=>Math.max(m,i.order),-1);
+  const id = 'w'+Date.now();
+  w.items.push({id, order:maxOrder+1, hidden:false, image:null, icon:'layout', link:'',
+    caption:{en:'New project',et:'Uus projekt',ru:'Новый проект',sv:'Nytt projekt'}});
+  saveLocal(); render();
+}
+function openShowcasePanel(id){
+  const it = siteData.sections.showcase.items.find(x=>x.id===id);
+  currentEdit = {kind:'showcaseItem', id};
+  const iconKeys = Object.keys(ICONS);
+  document.getElementById('panel').innerHTML = `
+    <button class="close-panel" onclick="closePanel()">✕</button>
+    <h4>Edit work sample</h4>
+    <div class="sub">Editing language: ${langName(siteData.lang)}</div>
+    <label>Caption</label>
+    <input type="text" id="f_caption" value="${(it.caption[siteData.lang]||'').replace(/"/g,'&quot;')}">
+    <label>Link to example page</label>
+    <input type="text" id="f_link" placeholder="https://..." value="${(it.link||'').replace(/"/g,'&quot;')}">
+    <div class="sub">Card opens this in a new tab. Leave empty for now.</div>
+    <label>Placeholder icon (used until a picture is uploaded)</label>
+    <div class="icon-picker">${iconKeys.map(k=>`<button type="button" class="${(it.icon||'layout')===k?'on':''}" onclick="setShowcaseIcon('${k}')">${ICONS[k]}</button>`).join('')}</div>
+    <label>Picture</label>
+    <input type="file" id="f_wimg" accept="image/*" onchange="previewWImg(event)">
+    <div class="imgprev" id="wImgPrev" style="${it.image?`background-image:url(${it.image})`:''}"></div>
+    <button class="go" style="margin-top:20px;" onclick="saveShowcaseItem('${id}')">Apply</button>
+    <button class="danger" onclick="setHidden('showcaseItem','${id}',null,true); closePanel();">Remove (hide, keeps no space)</button>
+  `;
+  document.getElementById('panel').classList.add('open');
+  document.getElementById('panel-backdrop').classList.add('open');
+}
+function setShowcaseIcon(key){
+  const it = siteData.sections.showcase.items.find(x=>x.id===currentEdit.id);
+  it.icon = key;
+  openShowcasePanel(it.id);
+}
+let _pendingWImg = null;
+function previewWImg(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{ _pendingWImg = reader.result; document.getElementById('wImgPrev').style.backgroundImage = `url(${_pendingWImg})`; };
+  reader.readAsDataURL(file);
+}
+function saveShowcaseItem(id){
+  pushHistory();
+  const it = siteData.sections.showcase.items.find(x=>x.id===id);
+  it.caption[siteData.lang] = document.getElementById('f_caption').value;
+  it.link = document.getElementById('f_link').value;
+  if (_pendingWImg) { it.image = _pendingWImg; _pendingWImg = null; }
+  saveLocal(); render(); closePanel();
+}
+
+function renderReviews(){
+  const rv = siteData.sections.reviews;
+  const visible = [...rv.items].filter(r=>!r.hidden).sort((a,b)=>a.order-b.order);
+  const cards = visible.map((r,idx,arr) => `
+    <div class="rcard box-wrap editable" data-kind="review" data-id="${r.id}">
+      ${isAdmin?`<div class="reorder-controls">
+        <button onclick="moveItem('reviews.items','${r.id}',-1)" ${idx===0?'disabled':''}>↑</button>
+        <button onclick="moveItem('reviews.items','${r.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
+      </div>`:''}
+      <div class="rquote-icon">${iconSvg('quote')}</div>
+      <p class="rquote" data-editpath="reviews.items[${r.id}].quote">${t(r.quote)}</p>
+      <div class="rmeta">
+        <span class="rname" data-editpath="reviews.items[${r.id}].name">${t(r.name)}</span>
+        <span class="rsite" data-editpath="reviews.items[${r.id}].site">${t(r.site)}</span>
+      </div>
+      <span class="edit-pencil">✎</span>
+    </div>`).join('');
+  const addTile = isAdmin ? `<div class="rcard add-tile" onclick="addReview()"><span>+</span><div>Add review</div></div>` : '';
+  return `<div class="section-shell" style="${marginStyle(rv.margin)}">
+    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('reviews')">⚙</div>`:''}
+    <div class="section-head">
+      ${!rv.heading.hidden?`<h2 class="editable" data-kind="text" data-path="reviews.heading" data-editpath="reviews.heading.text" style="font-size:${rv.heading.style.size}px;font-weight:${rv.heading.style.weight};color:${rv.heading.style.color}">${t(rv.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
+    </div>
+    <div class="reviews-grid">${cards}${addTile}</div>
+  </div>`;
+}
+function addReview(){
+  pushHistory();
+  const rv = siteData.sections.reviews;
+  const maxOrder = rv.items.reduce((m,r)=>Math.max(m,r.order),-1);
+  const id = 'r'+Date.now();
+  rv.items.push({id, order:maxOrder+1, hidden:false,
+    name:{en:'New client',et:'Uus klient',ru:'Новый клиент',sv:'Ny kund'},
+    site:{en:'Company name',et:'Ettevõtte nimi',ru:'Название компании',sv:'Företagsnamn'},
+    quote:{en:'Add their quote here.',et:'Lisa tsitaat siia.',ru:'Добавьте цитату.',sv:'Lägg till citat här.'}});
+  saveLocal(); render();
+}
+function reviewPanel(r){
+  return `
+    <button class="close-panel" onclick="closePanel()">✕</button>
+    <h4>Edit review</h4>
+    <div class="sub">Editing language: ${langName(siteData.lang)}. Fields can also be edited by clicking them directly on the page.</div>
+    <label>Client name</label>
+    <input type="text" id="f_name" value="${(r.name[siteData.lang]||'').replace(/"/g,'&quot;')}">
+    <label>Site / company</label>
+    <input type="text" id="f_site" value="${(r.site[siteData.lang]||'').replace(/"/g,'&quot;')}">
+    <label>Quote</label>
+    <textarea id="f_quote">${r.quote[siteData.lang]||''}</textarea>
+    <button class="go" style="margin-top:20px;" onclick="saveReview('${r.id}')">Apply</button>
+    <button class="danger" onclick="setHidden('review','${r.id}',null,true); closePanel();">Remove (hide, keeps no space)</button>
+  `;
+}
+function saveReview(id){
+  pushHistory();
+  const r = siteData.sections.reviews.items.find(x=>x.id===id);
+  r.name[siteData.lang] = document.getElementById('f_name').value;
+  r.site[siteData.lang] = document.getElementById('f_site').value;
+  r.quote[siteData.lang] = document.getElementById('f_quote').value;
+  saveLocal(); render(); closePanel();
+}
+
+function renderFooter(){
+  const f = siteData.sections.footer;
+  return `<div class="section-shell" style="${marginStyle(f.margin)}">
+    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('footer')">⚙</div>`:''}
+    <footer>
+      ${!f.copy.hidden?`<span class="editable" data-kind="text" data-path="footer.copy" data-editpath="footer.copy.text" style="font-size:${f.copy.style.size}px;color:${f.copy.style.color}">${t(f.copy.text)}<span class="edit-pencil">✎</span></span>`:''}
+    </footer>
+  </div>`;
+}
+
+/* ---------------- HELPERS ---------------- */
+function flagSvg(l){
+  const flags = {
+    et:'<svg viewBox="0 0 20 14" width="20" height="14"><rect width="20" height="14" fill="#0072CE"/><rect width="20" height="4.66" fill="#000"/><rect y="9.33" width="20" height="4.66" fill="#fff"/></svg>',
+    en:'<svg viewBox="0 0 20 14" width="20" height="14"><rect width="20" height="14" fill="#00247D"/><rect x="8" width="4" height="14" fill="#fff"/><rect y="5" width="20" height="4" fill="#fff"/><rect x="8.6" width="2.8" height="14" fill="#CF142B"/><rect y="5.6" width="20" height="2.8" fill="#CF142B"/></svg>',
+    ru:'<svg viewBox="0 0 20 14" width="20" height="14"><rect width="20" height="4.66" fill="#fff"/><rect y="4.66" width="20" height="4.66" fill="#0039A6"/><rect y="9.33" width="20" height="4.66" fill="#D52B1E"/></svg>',
+    sv:'<svg viewBox="0 0 20 14" width="20" height="14"><rect width="20" height="14" fill="#006AA7"/><rect x="6" width="3" height="14" fill="#FECC00"/><rect y="5.5" width="20" height="3" fill="#FECC00"/></svg>'
+  };
+  return flags[l] || flags.en;
+}
+function langName(l){ return {et:'Eesti',en:'English',ru:'Русский',sv:'Svenska'}[l]; }
+function personIcon(){ return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>'; }
+
+function setLang(l){ siteData.lang = l; document.getElementById('langSwitch').classList.remove('open'); render(); }
+
+function saveLocal(){ localStorage.setItem('fieldnote_content', JSON.stringify(siteData)); }
+
+/* ---------------- ADMIN LOGIN ---------------- */
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function doLogin(){
+  isAdmin = true;
+  closeModal('loginModal');
+  document.body.classList.add('admin');
+  document.getElementById('adminbar').classList.add('on');
+  render();
+}
+function exitAdmin(){
+  isAdmin = false;
+  document.body.classList.remove('admin');
+  document.getElementById('adminbar').classList.remove('on');
+  render();
+}
+
+/* ---------------- GENERIC FIELD PATH RESOLVER ----------------
+   Supports: plain.keys, array[byId], and array.byIndex — e.g.
+   "bento.cards[b1].title" or "pricing.plans[pl2].features.0"
+   Used by inline click-to-edit so one mechanism covers every field. */
+function stepInto(obj, seg){
+  const m = seg.match(/^(\w+)\[([\w-]+)\]$/);
+  if (m) return obj[m[1]].find(x=>x.id===m[2]);
+  if (/^\d+$/.test(seg)) return obj[Number(seg)];
+  return obj[seg];
+}
+function resolveFieldPath(pathStr){
+  const segs = pathStr.split('.');
+  let obj = siteData.sections;
+  for (let i=0;i<segs.length-1;i++) obj = stepInto(obj, segs[i]);
+  return { parent: obj, key: segs[segs.length-1] };
+}
+function getFieldValue(pathStr){
+  const {parent,key} = resolveFieldPath(pathStr);
+  const val = parent[key];
+  if (val && typeof val === 'object') return val[siteData.lang] || val.en || '';
+  return val;
+}
+function setFieldValue(pathStr, newVal){
+  const {parent,key} = resolveFieldPath(pathStr);
+  const val = parent[key];
+  if (val && typeof val === 'object') val[siteData.lang] = newVal;
+  else parent[key] = newVal;
+}
+
+/* ---------------- UNDO HISTORY ---------------- */
+let history = [];
+function pushHistory(){
+  history.push(JSON.stringify(siteData));
+  if (history.length > 25) history.shift();
+}
+function undo(){
+  if (!history.length) { alert('Nothing to undo yet.'); return; }
+  siteData = JSON.parse(history.pop());
+  saveLocal(); render();
+}
+function resetToDefault(){
+  if (!confirm('Reset ALL content back to the original defaults? Your current edits will be lost (though Undo can bring back the state right before this reset).')) return;
+  pushHistory();
+  siteData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  saveLocal(); render();
+}
+
+/* ---------------- INLINE CLICK-TO-EDIT (like Delusions) ----------------
+   Click text directly -> type over it in place, no panel.
+   Click the pencil -> full panel with style/size/hide/image controls.
+   Both write to the same underlying data, so they never conflict. */
+document.addEventListener('click', function(e){
+  if (!isAdmin) return;
+  if (e.target.closest('.edit-pencil')) return; // pencil handles its own click, opens the panel instead
+  if (e.target.closest('#panel') || e.target.closest('.modal')) return;
+  const target = e.target.closest('[data-editpath]');
+  if (!target || target.isContentEditable) return;
+  if (target.closest('a')) e.preventDefault(); // nav links/buttons/showcase captions can sit inside a real <a href> — without this, clicking to edit them also navigates
+  beginInlineEdit(target);
+});
+function beginInlineEdit(el){
+  pushHistory();
+  const path = el.dataset.editpath;
+  const pencil = el.querySelector('.edit-pencil');
+  if (pencil) pencil.remove(); // must remove (not just hide) — textContent would otherwise include its "✎" character
+  let cancelled = false;
+  el.contentEditable = 'true';
+  el.classList.add('inline-editing');
+  el.focus();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges(); sel.addRange(range);
+
+  function finish(){
+    el.removeEventListener('blur', finish);
+    el.removeEventListener('keydown', onKey);
+    el.contentEditable = 'false';
+    el.classList.remove('inline-editing');
+    if (cancelled) {
+      history.pop(); // nothing actually changed, discard the pending undo snapshot
+      render(); // rebuild so the pencil icon etc. come back correctly
+      return;
+    }
+    const text = el.textContent.trim();
+    setFieldValue(path, text);
+    saveLocal();
+    render();
+  }
+  function onKey(ev){
+    if (ev.key === 'Enter') { ev.preventDefault(); el.blur(); }
+    if (ev.key === 'Escape') { cancelled = true; el.blur(); }
+  }
+  el.addEventListener('blur', finish);
+  el.addEventListener('keydown', onKey);
+}
+
+/* ---------------- REORDER (Tier 1) ---------------- */
+function getByPath(path){
+  return path.split('.').reduce((o,k)=>o[k], siteData.sections);
+}
+function moveItem(listPath, id, dir){
+  pushHistory();
+  const list = getByPath(listPath);
+  const sorted = [...list].sort((a,b)=>a.order-b.order);
+  const idx = sorted.findIndex(x=>x.id===id);
+  const swapIdx = idx+dir;
+  if (swapIdx<0 || swapIdx>=sorted.length) { history.pop(); return; }
+  const a = sorted[idx], b = sorted[swapIdx];
+  const tmp = a.order; a.order = b.order; b.order = tmp;
+  saveLocal(); render();
+}
+
+/* ---------------- HIDE / RESTORE ----------------
+   ONE function walks the whole content tree for hidden things —
+   used by the counter, the drawer, AND setHidden's section-level path,
+   so there's no way for these to drift out of sync with each other. */
+function getAllHideable(){
+  const s = siteData.sections;
+  const items = [];
+
+  // whole sections (this was the missing case — hiding a whole section
+  // via the gear icon used to be untrackable/unrestorable)
+  Object.entries(s).forEach(([key, sec]) => {
+    if (sec.hidden) items.push({label:'Whole section: '+key, unhide:()=>{sec.hidden=false;}});
+  });
+
+  // standard {text,style,hidden} fields
+  const textFields = [
+    ['Logo', s.header.logo], ['Hero eyebrow', s.hero.eyebrow], ['Hero headline', s.hero.h1], ['Hero lead paragraph', s.hero.lead],
+    ['Showcase heading', s.showcase.heading],
+    ['Bento heading', s.bento.heading], ['Bento subheading', s.bento.sub],
+    ['Process heading', s.process.heading], ['Process subheading', s.process.sub],
+    ['Pricing heading', s.pricing.heading], ['Reviews heading', s.reviews.heading], ['Footer text', s.footer.copy]
+  ];
+  textFields.forEach(([label, ref]) => { if (ref.hidden) items.push({label, unhide:()=>{ref.hidden=false;}}); });
+
+  // list items
+  s.header.navLinks.forEach(n=>{ if(n.hidden) items.push({label:'Nav link: '+t(n.text), unhide:()=>{n.hidden=false;}}); });
+  s.strip.items.forEach(i=>{ if(i.hidden) items.push({label:'Stat: '+t(i.text).replace(/<[^>]+>/g,''), unhide:()=>{i.hidden=false;}}); });
+  s.showcase.items.forEach(w=>{ if(w.hidden) items.push({label:'Work sample: '+t(w.caption), unhide:()=>{w.hidden=false;}}); });
+  s.bento.cards.forEach(c=>{ if(c.hidden) items.push({label:'Card: '+t(c.title), unhide:()=>{c.hidden=false;}}); });
+  s.process.steps.forEach(p=>{ if(p.hidden) items.push({label:'Step: '+t(p.title), unhide:()=>{p.hidden=false;}}); });
+  s.pricing.plans.forEach(p=>{ if(p.hidden) items.push({label:'Plan: '+t(p.t), unhide:()=>{p.hidden=false;}}); });
+  s.reviews.items.forEach(r=>{ if(r.hidden) items.push({label:'Review: '+t(r.name), unhide:()=>{r.hidden=false;}}); });
+
+  return items;
+}
+
+function setHidden(kind, id, path, hidden){
+  pushHistory();
+  if (path){
+    const parts = path.split('.');
+    let obj = siteData.sections;
+    for (let i=0;i<parts.length;i++) obj = obj[parts[i]];
+    obj.hidden = hidden;
+  } else {
+    const map = {
+      navlink: ()=>siteData.sections.header.navLinks.find(x=>x.id===id),
+      stripItem: ()=>siteData.sections.strip.items.find(x=>x.id===id),
+      showcaseItem: ()=>siteData.sections.showcase.items.find(x=>x.id===id),
+      bentoCard: ()=>siteData.sections.bento.cards.find(x=>x.id===id),
+      processStep: ()=>siteData.sections.process.steps.find(x=>x.id===id),
+      plan: ()=>siteData.sections.pricing.plans.find(x=>x.id===id),
+      review: ()=>siteData.sections.reviews.items.find(x=>x.id===id)
+    };
+    const item = map[kind] && map[kind]();
+    if (item) item.hidden = hidden;
+  }
+  saveLocal(); render();
+}
+
+function updateHiddenCount(){
+  document.getElementById('hiddenCount').textContent = getAllHideable().length;
+}
+
+function openHiddenDrawer(){
+  const list = getAllHideable();
+  document.getElementById('hiddenList').innerHTML = list.length
+    ? list.map((item,i)=>`<div class="hidden-row"><span>${item.label}</span><button onclick="restoreRow(${i})">Restore</button></div>`).join('')
+    : '<p style="color:var(--mute);font-size:13px;padding:10px 0;">Nothing hidden right now.</p>';
+  window._hiddenListCache = list;
+  document.getElementById('hidden-drawer').classList.add('open');
+}
+function restoreRow(i){
+  pushHistory();
+  window._hiddenListCache[i].unhide();
+  saveLocal(); render(); openHiddenDrawer();
+}
+
+/* ---------------- EDIT PANEL ---------------- */
+function bindPencils(){
+  document.querySelectorAll('.editable').forEach(el=>{
+    el.querySelector('.edit-pencil')?.addEventListener('click', (e)=>{
+      e.preventDefault(); // pencil often sits inside a real <a href> — without this, clicking it also navigates
+      e.stopPropagation();
+      openPanelFor(el);
+    });
+  });
+}
+
+function openPanelFor(el){
+  const kind = el.dataset.kind;
+  const id = el.dataset.id;
+  const path = el.dataset.path;
+  currentEdit = {kind, id, path};
+  const panel = document.getElementById('panel');
+
+  if (kind === 'text'){
+    const obj = getByPath(path);
+    panel.innerHTML = textPanel(obj, path);
+  } else if (kind === 'bentoCard'){
+    const c = siteData.sections.bento.cards.find(x=>x.id===id);
+    panel.innerHTML = bentoPanel(c);
+  } else if (kind === 'plan'){
+    const p = siteData.sections.pricing.plans.find(x=>x.id===id);
+    panel.innerHTML = planPanel(p);
+  } else if (kind === 'processStep'){
+    const p = siteData.sections.process.steps.find(x=>x.id===id);
+    panel.innerHTML = simpleTextGroupPanel(p, ['title','desc'], ()=>{p.hidden=true;});
+  } else if (kind === 'review'){
+    const r = siteData.sections.reviews.items.find(x=>x.id===id);
+    panel.innerHTML = reviewPanel(r);
+  } else if (kind === 'navlink' || kind === 'stripItem'){
+    const list = kind==='navlink' ? siteData.sections.header.navLinks : siteData.sections.strip.items;
+    const item = list.find(x=>x.id===id);
+    panel.innerHTML = linkOrTextPanel(item, kind);
+  } else if (kind === 'headerCta' || kind === 'heroCta'){
+    panel.innerHTML = ctaPanel(kind);
+  }
+
+  document.getElementById('panel').classList.add('open');
+  document.getElementById('panel-backdrop').classList.add('open');
+}
+
+function closePanel(){
+  document.getElementById('panel').classList.remove('open');
+  document.getElementById('panel-backdrop').classList.remove('open');
+}
+
+function textPanel(obj, path){
+  const val = obj.text[siteData.lang] || '';
+  return `
+    <button class="close-panel" onclick="closePanel()">✕</button>
+    <h4>Edit text</h4>
+    <div class="sub">Editing language: ${langName(siteData.lang)}</div>
+    <label>Content</label>
+    <textarea id="f_text">${val}</textarea>
+    <label>Font size (px)</label>
+    <input type="range" id="f_size" min="11" max="80" value="${obj.style.size}" oninput="document.getElementById('f_sizeval').textContent=this.value">
+    <div class="sub" id="f_sizeval">${obj.style.size}</div>
+    <label>Style</label>
+    <div class="toggle-group">
+      <button id="f_bold" class="${obj.style.weight>=700?'on':''}" onclick="this.classList.toggle('on')">Bold</button>
+      <button id="f_italic" class="${obj.style.italic?'on':''}" onclick="this.classList.toggle('on')">Italic</button>
+    </div>
+    <label>Color</label>
+    <input type="color" id="f_color" value="${obj.style.color}">
+    <button class="go" style="margin-top:20px;" onclick="saveTextPanel('${path}')">Apply</button>
+    <button class="danger" onclick="hideCurrentText('${path}')">Remove (hide, keeps no space)</button>
+  `;
+}
+
+function linkOrTextPanel(item, kind){
+  const val = item.text[siteData.lang] || '';
+  return `
+    <button class="close-panel" onclick="closePanel()">✕</button>
+    <h4>Edit ${kind==='navlink'?'nav link':'stat text'}</h4>
+    <div class="sub">Editing language: ${langName(siteData.lang)}</div>
+    <label>Text</label>
+    <input type="text" id="f_text" value="${val.replace(/"/g,'&quot;')}">
+    ${kind==='navlink'?`<label>Link URL</label><input type="text" id="f_link" value="${item.link}">`:''}
+    <button class="go" style="margin-top:20px;" onclick="saveLinkOrText('${kind}','${item.id}')">Apply</button>
+    <button class="danger" onclick="setHidden('${kind}','${item.id}',null,true); closePanel();">Remove (hide, keeps no space)</button>
+  `;
+}
+function saveLinkOrText(kind, id){
+  pushHistory();
+  const list = kind==='navlink' ? siteData.sections.header.navLinks : siteData.sections.strip.items;
+  const item = list.find(x=>x.id===id);
+  item.text[siteData.lang] = document.getElementById('f_text').value;
+  if (kind==='navlink') item.link = document.getElementById('f_link').value;
+  saveLocal(); render(); closePanel();
+}
+
+function ctaPanel(kind){
+  const isHeader = kind==='headerCta';
+  const textObj = isHeader ? siteData.sections.header.ctaText : siteData.sections.hero.ctaPrimary;
+  const link = isHeader ? siteData.sections.header.ctaLink : siteData.sections.hero.ctaLink;
+  return `
+    <button class="close-panel" onclick="closePanel()">✕</button>
+    <h4>Edit button</h4>
+    <div class="sub">Editing language: ${langName(siteData.lang)}</div>
+    <label>Button text</label>
+    <input type="text" id="f_text" value="${textObj[siteData.lang]}">
+    <label>Link URL</label>
+    <input type="text" id="f_link" value="${link}">
+    <button class="go" style="margin-top:20px;" onclick="saveCta('${kind}')">Apply</button>
+  `;
+}
+function saveCta(kind){
+  pushHistory();
+  const isHeader = kind==='headerCta';
+  const target = isHeader ? siteData.sections.header : siteData.sections.hero;
+  const textField = isHeader ? 'ctaText' : 'ctaPrimary';
+  target[textField][siteData.lang] = document.getElementById('f_text').value;
+  target.ctaLink = document.getElementById('f_link').value;
+  saveLocal(); render(); closePanel();
+}
+
+function bentoPanel(c){
+  const iconKeys = Object.keys(ICONS);
+  return `
+    <button class="close-panel" onclick="closePanel()">✕</button>
+    <h4>Edit card</h4>
+    <div class="sub">Editing language: ${langName(siteData.lang)}</div>
+    <label>Icon</label>
+    <div class="icon-picker">${iconKeys.map(k=>`<button type="button" class="${c.icon===k?'on':''}" onclick="setCardIcon('${k}')">${ICONS[k]}</button>`).join('')}</div>
+    <label>Label</label>
+    <input type="text" id="f_n" value="${c.n[siteData.lang]}">
+    <label>Title</label>
+    <input type="text" id="f_title" value="${c.title[siteData.lang]}">
+    <label>Description</label>
+    <textarea id="f_desc">${c.desc[siteData.lang]}</textarea>
+    <label>Width (columns, of 6)</label>
+    <select id="f_span">
+      <option value="2" ${c.span===2?'selected':''}>Narrow (2)</option>
+      <option value="3" ${c.span===3?'selected':''}>Medium (3)</option>
+      <option value="4" ${c.span===4?'selected':''}>Wide (4)</option>
+      <option value="6" ${c.span===6?'selected':''}>Full width (6)</option>
+    </select>
+    <label>Background color</label>
+    <input type="color" id="f_bg" value="${c.bg||'#F7F8F9'}">
+    <label>Or background image</label>
+    <input type="file" id="f_img" accept="image/*" onchange="previewImg(event)">
+    <div class="imgprev" id="imgPrev" style="${c.image?`background-image:url(${c.image})`:''}"></div>
+    <button class="go" style="margin-top:20px;" onclick="saveBento('${c.id}')">Apply</button>
+    <button class="danger" onclick="setHidden('bentoCard','${c.id}',null,true); closePanel();">Remove (hide, keeps no space)</button>
+  `;
+}
+function setCardIcon(key){
+  const c = siteData.sections.bento.cards.find(x=>x.id===currentEdit.id);
+  c.icon = key;
+  document.getElementById('panel').innerHTML = bentoPanel(c);
+}
+let _pendingImg = null;
+function previewImg(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{ _pendingImg = reader.result; document.getElementById('imgPrev').style.backgroundImage = `url(${_pendingImg})`; };
+  reader.readAsDataURL(file);
+}
+function saveBento(id){
+  pushHistory();
+  const c = siteData.sections.bento.cards.find(x=>x.id===id);
+  c.n[siteData.lang] = document.getElementById('f_n').value;
+  c.title[siteData.lang] = document.getElementById('f_title').value;
+  c.desc[siteData.lang] = document.getElementById('f_desc').value;
+  c.span = parseInt(document.getElementById('f_span').value);
+  c.bg = document.getElementById('f_bg').value;
+  if (_pendingImg) { c.image = _pendingImg; _pendingImg = null; }
+  saveLocal(); render(); closePanel();
+}
+
+function planPanel(p){
+  const featureRows = p.features.map((f,i)=>`
+    <div class="row" style="margin-bottom:6px; align-items:center;">
+      <input type="text" class="feat-input" data-idx="${i}" value="${(f[siteData.lang]||'').replace(/"/g,'&quot;')}">
+      <button type="button" onclick="removeFeature(${i})" style="flex:0 0 30px; border:1px solid var(--hair); background:#fff; border-radius:6px; cursor:pointer;">✕</button>
+    </div>`).join('');
+  return `
+    <button class="close-panel" onclick="closePanel()">✕</button>
+    <h4>Edit plan</h4>
+    <div class="sub">Editing language: ${langName(siteData.lang)}</div>
+    <label>Plan name</label>
+    <input type="text" id="f_t" value="${p.t[siteData.lang]}">
+    <label>Price</label>
+    <input type="text" id="f_price" value="${p.price}">
+    <label>Featured (highlighted)</label>
+    <div class="toggle-group"><button id="f_feat" class="${p.featured?'on':''}" onclick="this.classList.toggle('on')">Featured</button></div>
+    <label>Feature list</label>
+    <div id="featureRows">${featureRows}</div>
+    <button type="button" onclick="addFeature()" style="width:100%;padding:9px;border:1px dashed var(--hair);border-radius:6px;background:none;cursor:pointer;font-size:12.5px;color:var(--mute);">+ Add feature line</button>
+    <button class="go" style="margin-top:20px;" onclick="savePlan('${p.id}')">Apply</button>
+    <button class="danger" onclick="setHidden('plan','${p.id}',null,true); closePanel();">Remove (hide, keeps no space)</button>
+  `;
+}
+function addFeature(){
+  const p = siteData.sections.pricing.plans.find(x=>x.id===currentEdit.id);
+  p.features.push({en:'New feature',et:'',ru:'',sv:''});
+  document.getElementById('panel').innerHTML = planPanel(p); // refresh panel only, no full site re-render needed
+}
+function removeFeature(idx){
+  const p = siteData.sections.pricing.plans.find(x=>x.id===currentEdit.id);
+  p.features.splice(idx,1);
+  document.getElementById('panel').innerHTML = planPanel(p);
+}
+function savePlan(id){
+  pushHistory();
+  const p = siteData.sections.pricing.plans.find(x=>x.id===id);
+  p.t[siteData.lang] = document.getElementById('f_t').value;
+  p.price = document.getElementById('f_price').value;
+  p.featured = document.getElementById('f_feat').classList.contains('on');
+  document.querySelectorAll('.feat-input').forEach(inp=>{
+    const idx = parseInt(inp.dataset.idx);
+    if (p.features[idx]) p.features[idx][siteData.lang] = inp.value;
+  });
+  saveLocal(); render(); closePanel();
+}
+
+function simpleTextGroupPanel(obj, fields, hideFn){
+  const inputs = fields.map(f=>`<label>${f}</label><input type="text" id="f_${f}" value="${obj[f][siteData.lang]}">`).join('');
+  const iconKeys = Object.keys(ICONS);
+  return `
+    <button class="close-panel" onclick="closePanel()">✕</button>
+    <h4>Edit step</h4>
+    <div class="sub">Editing language: ${langName(siteData.lang)}</div>
+    <label>Icon</label>
+    <div class="icon-picker">${iconKeys.map(k=>`<button type="button" class="${obj.icon===k?'on':''}" onclick="setStepIcon('${k}')">${ICONS[k]}</button>`).join('')}</div>
+    ${inputs}
+    <button class="go" style="margin-top:20px;" onclick="saveProcessStep('${obj.id}')">Apply</button>
+    <button class="danger" onclick="setHidden('processStep','${obj.id}',null,true); closePanel();">Remove (hide, keeps no space)</button>
+  `;
+}
+function setStepIcon(key){
+  const p = siteData.sections.process.steps.find(x=>x.id===currentEdit.id);
+  p.icon = key;
+  document.getElementById('panel').innerHTML = simpleTextGroupPanel(p, ['title','desc']);
+}
+function saveProcessStep(id){
+  pushHistory();
+  const p = siteData.sections.process.steps.find(x=>x.id===id);
+  p.title[siteData.lang] = document.getElementById('f_title').value;
+  p.desc[siteData.lang] = document.getElementById('f_desc').value;
+  saveLocal(); render(); closePanel();
+}
+
+function saveTextPanel(path){
+  pushHistory();
+  const obj = getByPath(path);
+  obj.text[siteData.lang] = document.getElementById('f_text').value;
+  obj.style.size = parseInt(document.getElementById('f_size').value);
+  obj.style.weight = document.getElementById('f_bold').classList.contains('on') ? 800 : 400;
+  obj.style.italic = document.getElementById('f_italic').classList.contains('on');
+  obj.style.color = document.getElementById('f_color').value;
+  saveLocal(); render(); closePanel();
+}
+function hideCurrentText(path){
+  pushHistory();
+  const obj = getByPath(path);
+  obj.hidden = true;
+  saveLocal(); render(); closePanel();
+}
+
+/* ---------------- SECTION SPACING ---------------- */
+function openSectionPanel(sectionKey){
+  const s = siteData.sections[sectionKey];
+  const heroVisualHtml = sectionKey === 'hero' ? `
+    <label>Header picture</label>
+    <div class="sub" style="margin-bottom:10px;">Replace the default illustration with your own photo, or leave empty to keep it.</div>
+    <input type="file" id="f_heroimg" accept="image/*" onchange="previewHeroImg(event)">
+    <div class="imgprev" id="heroImgPrev" style="${s.visual.image?`background-image:url(${s.visual.image})`:''}"></div>
+    <label>Picture height (px)</label>
+    <input type="range" min="200" max="600" value="${s.visual.height}" oninput="document.getElementById('hhval').textContent=this.value" id="f_hh">
+    <div class="sub" id="hhval">${s.visual.height}</div>
+    ${s.visual.image ? `<button type="button" onclick="resetHeroVisual()" style="width:100%;padding:9px;border:1px dashed var(--hair);border-radius:6px;background:none;cursor:pointer;font-size:12.5px;color:var(--mute);margin-top:6px;">Remove photo, use illustration instead</button>` : ''}
+  ` : '';
+  const navLinksHtml = sectionKey === 'header' ? `
+    <label>Menu links</label>
+    <div class="sub" style="margin-bottom:6px;">Click a link's own pencil on the page to edit its text or URL. Add or remove links here.</div>
+    ${s.navLinks.map(n=>`<div class="row" style="margin-bottom:6px; align-items:center;">
+      <div style="flex:1; padding:9px 10px; border:1px solid var(--hair); border-radius:6px; font-size:13px; ${n.hidden?'opacity:.4;':''}">${t(n.text)}${n.hidden?' (hidden)':''}</div>
+      <button type="button" onclick="removeNavLink('${n.id}')" style="flex:0 0 30px; border:1px solid var(--hair); background:#fff; border-radius:6px; cursor:pointer;">✕</button>
+    </div>`).join('')}
+    <button type="button" onclick="addNavLink()" style="width:100%;padding:9px;border:1px dashed var(--hair);border-radius:6px;background:none;cursor:pointer;font-size:12.5px;color:var(--mute);margin-bottom:6px;">+ Add menu link</button>
+  ` : '';
+  const showcaseSpeedHtml = sectionKey === 'showcase' ? `
+    <label>Auto-scroll speed</label>
+    <input type="range" min="0" max="3" step="0.1" value="${s.autoplaySpeed}" oninput="document.getElementById('spval').textContent=this.value" id="f_speed">
+    <div class="sub" id="spval">${s.autoplaySpeed} ${s.autoplaySpeed==0?'(paused)':''}</div>
+  ` : '';
+  document.getElementById('panel').innerHTML = `
+    <button class="close-panel" onclick="closePanel()">✕</button>
+    <h4>Section spacing</h4>
+    <div class="sub">${sectionKey}</div>
+    <label>Space above (px)</label>
+    <input type="range" min="-40" max="160" value="${s.margin.mt}" oninput="document.getElementById('mtval').textContent=this.value" id="f_mt">
+    <div class="sub" id="mtval">${s.margin.mt}</div>
+    <label>Space below (px)</label>
+    <input type="range" min="-40" max="160" value="${s.margin.mb}" oninput="document.getElementById('mbval').textContent=this.value" id="f_mb">
+    <div class="sub" id="mbval">${s.margin.mb}</div>
+    ${heroVisualHtml}
+    ${navLinksHtml}
+    ${showcaseSpeedHtml}
+    <button class="go" style="margin-top:20px;" onclick="saveSectionSpacing('${sectionKey}')">Apply</button>
+    <button class="danger" onclick="setHidden(null,null,'${sectionKey}',true); closePanel();">Hide entire section</button>
+  `;
+  document.getElementById('panel').classList.add('open');
+  document.getElementById('panel-backdrop').classList.add('open');
+}
+function addNavLink(){
+  pushHistory();
+  const nav = siteData.sections.header.navLinks;
+  const id = 'nav'+Date.now();
+  nav.push({id, text:{en:'New link',et:'Uus link',ru:'Новая ссылка',sv:'Ny länk'}, link:'#', hidden:false});
+  saveLocal(); render(); openSectionPanel('header');
+}
+function removeNavLink(id){
+  pushHistory();
+  const nav = siteData.sections.header.navLinks;
+  const item = nav.find(x=>x.id===id);
+  if (item) item.hidden = true;
+  saveLocal(); render(); openSectionPanel('header');
+}
+let _pendingHeroImg = null;
+function previewHeroImg(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{ _pendingHeroImg = reader.result; document.getElementById('heroImgPrev').style.backgroundImage = `url(${_pendingHeroImg})`; };
+  reader.readAsDataURL(file);
+}
+function resetHeroVisual(){
+  pushHistory();
+  siteData.sections.hero.visual.image = null;
+  saveLocal(); render(); openSectionPanel('hero');
+}
+function saveSectionSpacing(key){
+  pushHistory();
+  const s = siteData.sections[key];
+  s.margin.mt = parseInt(document.getElementById('f_mt').value);
+  s.margin.mb = parseInt(document.getElementById('f_mb').value);
+  if (key === 'hero'){
+    if (_pendingHeroImg) { s.visual.image = _pendingHeroImg; _pendingHeroImg = null; }
+    s.visual.height = parseInt(document.getElementById('f_hh').value);
+  }
+  if (key === 'showcase'){
+    s.autoplaySpeed = parseFloat(document.getElementById('f_speed').value);
+  }
+  saveLocal(); render(); closePanel();
+}
+
+/* ---------------- PUBLISH ---------------- */
+function openPublish(){
+  document.getElementById('publishJson').textContent = JSON.stringify(siteData, null, 2);
+  openModal('publish-modal');
+}
+function confirmPublish(){
+  saveLocal();
+  closeModal('publish-modal');
+  alert('Saved locally. In the real build this writes to Supabase and is live immediately for all visitors.');
+}
+
+/* ---------------- INIT ---------------- */
+render();
+</script>
+</body>
+</html>

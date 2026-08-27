@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pricing — Fieldnote</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<div class="wrap">
+  <section class="page-hero">
+    <div class="eyebrow">Fixed-price web studio</div>
+    <h1>Pick a package, or ask for a custom quote.</h1>
+    <p>Every price below is fixed and final — what you see is what you pay, no surprises after the brief.</p>
+  </section>
+
+  <div class="plans">
+    <div class="plan">
+      <div class="t">Starter</div>
+      <h3>€450</h3>
+      <ul><li>Single page</li><li>3 day delivery</li><li>1 revision round</li></ul>
+      <button class="plan-cta" data-plan="starter">Choose Starter</button>
+    </div>
+    <div class="plan feat">
+      <div class="t">Standard</div>
+      <h3>€1,200</h3>
+      <ul><li>Up to 8 pages</li><li>CMS-editable content</li><li>3 revision rounds</li></ul>
+      <button class="plan-cta" data-plan="standard">Choose Standard</button>
+    </div>
+    <div class="plan">
+      <div class="t">Full Build</div>
+      <h3>€2,900+</h3>
+      <ul><li>Accounts & payments</li><li>Database backend</li><li>Priority support</li></ul>
+      <button class="plan-cta" data-plan="fullbuild">Choose Full Build</button>
+    </div>
+  </div>
+
+  <p style="text-align:center; margin:30px 0 60px; color:var(--mute); font-size:14px;">
+    Need something that doesn't fit these boxes? <a href="quote.html" style="color:var(--coral); font-weight:600;">Ask for a custom quote →</a>
+  </p>
+</div>
+
+<div id="site-footer"></div>
+
+<!-- Simple project-notes modal shown before handing off to checkout -->
+<div class="modal-backdrop" id="notesModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeNotesModal()">✕</button>
+    <h3 style="font-size:19px; font-weight:800; margin-bottom:6px;">Before we start</h3>
+    <p style="font-size:13px; color:var(--mute); margin-bottom:16px;">Anything you want us to know about the project? Optional — you can also just send this later.</p>
+    <textarea id="orderNotes" placeholder="e.g. it's for a bakery, needs a booking form..."></textarea>
+    <button class="btn-primary" id="proceedBtn" style="width:100%; margin-top:16px;">Continue to payment</button>
+    <div id="checkoutError" class="form-error" style="display:none;"></div>
+  </div>
+</div>
+
+<script type="module">
+  import { renderHeader, renderFooter } from './assets/site-chrome.js';
+  import { supabase } from './shared/supabaseClient.js';
+  import { startCheckout } from './shared/orders.js';
+
+  renderHeader('pricing.html');
+  renderFooter();
+
+  let selectedPlan = null;
+
+  document.querySelectorAll('.plan-cta').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      selectedPlan = btn.dataset.plan;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        window.location.href = `login.html?returnTo=${encodeURIComponent('pricing.html')}&plan=${selectedPlan}`;
+        return;
+      }
+      document.getElementById('notesModal').classList.add('open');
+    });
+  });
+
+  function closeNotesModal(){ document.getElementById('notesModal').classList.remove('open'); }
+  window.closeNotesModal = closeNotesModal;
+
+  document.getElementById('proceedBtn').addEventListener('click', async () => {
+    const errEl = document.getElementById('checkoutError');
+    errEl.style.display = 'none';
+    const btn = document.getElementById('proceedBtn');
+    btn.disabled = true; btn.textContent = 'Redirecting to payment…';
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const notes = document.getElementById('orderNotes').value;
+      await startCheckout(user.id, selectedPlan, notes);
+    } catch (err) {
+      errEl.textContent = err.message || 'Something went wrong starting checkout.';
+      errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Continue to payment';
+    }
+  });
+
+  // If arriving back from login.html (or from start-project.html) with a
+  // plan already chosen, resume the flow — but still gate on login first.
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('plan')) {
+    selectedPlan = params.get('plan');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      window.location.href = `login.html?returnTo=${encodeURIComponent('pricing.html')}&plan=${selectedPlan}`;
+    } else {
+      document.getElementById('notesModal').classList.add('open');
+    }
+  }
+</script>
+</body>
+</html>

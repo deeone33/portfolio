@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>My account — Fieldnote</title>
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+  .order-card{border:1px solid var(--hair); border-radius:14px; padding:24px; margin-bottom:16px; background:var(--ink2);}
+  .order-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;}
+  .order-top h3{font-size:18px; font-weight:700;}
+  .order-meta{font-size:12.5px; color:var(--mute); margin-top:4px;}
+  .file-row{display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#fff; border:1px solid var(--hair); border-radius:8px; margin-top:8px; font-size:13px;}
+  .file-row a{font-weight:700; color:var(--coral);}
+  .comment{padding:10px 0; border-top:1px solid var(--hair); font-size:13.5px;}
+  .comment .who{font-weight:700; font-size:12px; color:var(--mute); margin-bottom:2px;}
+  .comment-box{display:flex; gap:8px; margin-top:12px;}
+  .comment-box input{flex:1;}
+</style>
+</head>
+<body>
+<div id="site-header"></div>
+
+<div class="wrap" style="padding-bottom:70px;">
+  <section class="page-hero" style="padding-bottom:10px;">
+    <h1 id="greeting">My account</h1>
+    <p>Your orders, delivered files, and project comments — all in one place.</p>
+  </section>
+
+  <div id="banner"></div>
+  <div id="ordersList" style="margin-top:20px;"></div>
+  <div id="emptyState" style="display:none; text-align:center; padding:60px 0;">
+    <p style="color:var(--mute); margin-bottom:16px;">No orders yet.</p>
+    <a href="pricing.html" class="btn-primary">See packages</a>
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module">
+  import { renderHeader, renderFooter } from './assets/site-chrome.js';
+  import { requireLogin } from './shared/auth.js';
+  import { getMyOrders, postComment, getDownloadUrl, formatMoney } from './shared/orders.js';
+
+  renderHeader('account.html');
+  renderFooter();
+
+  const user = await requireLogin();
+  if (!user) throw new Error('redirecting to login');
+
+  document.getElementById('greeting').textContent = `Hi${user.user_metadata?.full_name ? ', ' + user.user_metadata.full_name : ''}.`;
+
+  const params = new URLSearchParams(window.location.search);
+  const banner = document.getElementById('banner');
+  if (params.get('paid')) banner.innerHTML = `<div class="form-success">Payment received — thanks! We'll be in touch shortly.</div>`;
+  if (params.get('cancelled')) banner.innerHTML = `<div class="form-error">Checkout was cancelled — no charge was made.</div>`;
+
+  const orders = await getMyOrders(user.id);
+  const listEl = document.getElementById('ordersList');
+
+  if (!orders.length) {
+    document.getElementById('emptyState').style.display = 'block';
+  } else {
+    listEl.innerHTML = orders.map(o => renderOrder(o)).join('');
+    orders.forEach(o => {
+      const btn = document.getElementById(`send-${o.id}`);
+      if (btn) btn.addEventListener('click', () => sendComment(o.id));
+    });
+    document.querySelectorAll('.dl-link').forEach(a => {
+      a.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const url = await getDownloadUrl(a.dataset.path);
+        window.open(url, '_blank');
+      });
+    });
+  }
+
+  function renderOrder(o){
+    const files = (o.order_files || []);
+    const comments = (o.order_comments || []).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    return `
+      <div class="order-card">
+        <div class="order-top">
+          <div>
+            <h3>${o.plan_label}</h3>
+            <div class="order-meta">Ordered ${new Date(o.created_at).toLocaleDateString()} · ${formatMoney(o.price_cents, o.currency)}</div>
+          </div>
+          <span class="status-badge status-${o.status}">${o.status.replace('_',' ')}</span>
+        </div>
+        ${o.notes ? `<p style="font-size:13px; color:var(--mute); margin-top:8px;">"${escapeHtml(o.notes)}"</p>` : ''}
+
+        ${files.length ? `<div style="margin-top:14px;"><div class="order-meta" style="margin-bottom:4px;">Delivered files</div>
+          ${files.map(f => `<div class="file-row"><span>${escapeHtml(f.file_name)}</span><a href="#" class="dl-link" data-path="${f.file_path}">Download</a></div>`).join('')}
+        </div>` : ''}
+
+        <div style="margin-top:16px;">
+          <div class="order-meta" style="margin-bottom:4px;">Comments</div>
+          ${comments.length ? comments.map(c => `<div class="comment"><div class="who">${c.author_role === 'staff' ? 'Fieldnote' : 'You'} · ${new Date(c.created_at).toLocaleDateString()}</div>${escapeHtml(c.body)}</div>`).join('') : `<div style="font-size:13px;color:var(--mute);">No comments yet.</div>`}
+          <div class="comment-box">
+            <input type="text" id="input-${o.id}" placeholder="Write a comment...">
+            <button class="btn-secondary" id="send-${o.id}">Send</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  async function sendComment(orderId){
+    const input = document.getElementById(`input-${orderId}`);
+    const body = input.value.trim();
+    if (!body) return;
+    await postComment(orderId, user.id, 'customer', body);
+    input.value = '';
+    location.reload();
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+</script>
+</body>
+</html>

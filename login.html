@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sign in — Fieldnote</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<div class="wrap" style="padding:50px 0 80px;">
+  <div class="form-card">
+    <div id="formArea"></div>
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module">
+  import { renderHeader, renderFooter } from './assets/site-chrome.js';
+  import { supabase } from './shared/supabaseClient.js';
+  import { signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, signInWithGoogle } from './shared/auth.js';
+
+  renderHeader('login.html');
+  renderFooter();
+
+  const params = new URLSearchParams(window.location.search);
+  const returnTo = params.get('returnTo') || '/account.html';
+  const planParam = params.get('plan');
+  const finalReturn = planParam ? `${returnTo}?plan=${planParam}` : returnTo;
+
+  let mode = params.get('mode') === 'reset' ? 'newpassword' : 'login'; // 'login' | 'signup' | 'forgot' | 'newpassword'
+
+  function render(){
+    const el = document.getElementById('formArea');
+    if (mode === 'login') {
+      el.innerHTML = `
+        <h2>Sign in</h2>
+        <div class="sub">Welcome back.</div>
+        <button class="google-btn" id="googleBtn">${googleIcon()} Continue with Google</button>
+        <div class="divider">or</div>
+        <label class="field-label">Email</label>
+        <input type="email" id="email">
+        <label class="field-label">Password</label>
+        <input type="password" id="password">
+        <button class="btn-primary" id="submitBtn" style="width:100%; margin-top:20px;">Sign in</button>
+        <div id="err" class="form-error" style="display:none;"></div>
+        <div class="form-links">
+          <a href="#" id="toForgot">Forgot password?</a>
+          <a href="#" id="toSignup">Create an account</a>
+        </div>`;
+      document.getElementById('submitBtn').onclick = doLogin;
+      document.getElementById('toForgot').onclick = (e)=>{e.preventDefault(); mode='forgot'; render();};
+      document.getElementById('toSignup').onclick = (e)=>{e.preventDefault(); mode='signup'; render();};
+      document.getElementById('googleBtn').onclick = () => signInWithGoogle();
+    }
+    else if (mode === 'signup') {
+      el.innerHTML = `
+        <h2>Create an account</h2>
+        <div class="sub">Takes a minute — you'll need this to place and track orders.</div>
+        <button class="google-btn" id="googleBtn">${googleIcon()} Continue with Google</button>
+        <div class="divider">or</div>
+        <label class="field-label">Full name</label>
+        <input type="text" id="fullName">
+        <label class="field-label">Email</label>
+        <input type="email" id="email">
+        <label class="field-label">Password</label>
+        <input type="password" id="password">
+        <button class="btn-primary" id="submitBtn" style="width:100%; margin-top:20px;">Create account</button>
+        <div id="err" class="form-error" style="display:none;"></div>
+        <div id="ok" class="form-success" style="display:none;"></div>
+        <div class="form-links">
+          <span></span>
+          <a href="#" id="toLogin">Already have an account? Sign in</a>
+        </div>`;
+      document.getElementById('submitBtn').onclick = doSignup;
+      document.getElementById('toLogin').onclick = (e)=>{e.preventDefault(); mode='login'; render();};
+      document.getElementById('googleBtn').onclick = () => signInWithGoogle();
+    }
+    else if (mode === 'forgot') {
+      el.innerHTML = `
+        <h2>Reset your password</h2>
+        <div class="sub">We'll email you a link to set a new one.</div>
+        <label class="field-label">Email</label>
+        <input type="email" id="email">
+        <button class="btn-primary" id="submitBtn" style="width:100%; margin-top:20px;">Send reset link</button>
+        <div id="err" class="form-error" style="display:none;"></div>
+        <div id="ok" class="form-success" style="display:none;"></div>
+        <div class="form-links">
+          <a href="#" id="toLogin">Back to sign in</a>
+          <span></span>
+        </div>`;
+      document.getElementById('submitBtn').onclick = doForgot;
+      document.getElementById('toLogin').onclick = (e)=>{e.preventDefault(); mode='login'; render();};
+    }
+    else if (mode === 'newpassword') {
+      el.innerHTML = `
+        <h2>Set a new password</h2>
+        <div class="sub">You followed the reset link — choose a new password below.</div>
+        <label class="field-label">New password</label>
+        <input type="password" id="password">
+        <button class="btn-primary" id="submitBtn" style="width:100%; margin-top:20px;">Update password</button>
+        <div id="err" class="form-error" style="display:none;"></div>
+        <div id="ok" class="form-success" style="display:none;"></div>`;
+      document.getElementById('submitBtn').onclick = doNewPassword;
+    }
+  }
+
+  function showErr(msg){ const e=document.getElementById('err'); e.textContent=msg; e.style.display='block'; }
+  function showOk(msg){ const o=document.getElementById('ok'); if(o){o.textContent=msg; o.style.display='block';} }
+
+  async function doLogin(){
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const { error } = await signInWithEmail(email, password);
+    if (error) return showErr(error.message);
+    window.location.href = finalReturn;
+  }
+  async function doSignup(){
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const fullName = document.getElementById('fullName').value;
+    const { error } = await signUpWithEmail(email, password, fullName);
+    if (error) return showErr(error.message);
+    showOk('Account created! Check your email to confirm, then sign in.');
+  }
+  async function doForgot(){
+    const email = document.getElementById('email').value;
+    const { error } = await sendPasswordReset(email);
+    if (error) return showErr(error.message);
+    showOk('Reset link sent — check your email.');
+  }
+  async function doNewPassword(){
+    const password = document.getElementById('password').value;
+    const { error } = await updatePassword(password);
+    if (error) return showErr(error.message);
+    showOk('Password updated. Redirecting…');
+    setTimeout(()=> window.location.href = 'account.html', 1200);
+  }
+
+  function googleIcon(){
+    return `<svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.5 18.9 12 24 12c3.1 0 5.9 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3 15.8 3 8.7 8 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.3C29.2 36.5 26.7 37.4 24 37.4c-5.3 0-9.7-3.6-11.3-8.4l-6.5 5C9 40 15.9 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.2 5.3C40.9 36.5 44 30.9 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>`;
+  }
+
+  // If already logged in and just landing here, skip straight to account
+  supabase.auth.getUser().then(({data:{user}}) => {
+    if (user && mode === 'login') window.location.href = finalReturn;
+  });
+
+  render();
+</script>
+</body>
+</html>

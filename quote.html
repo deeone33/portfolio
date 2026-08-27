@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Get a quote — Fieldnote</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<div class="wrap" style="padding:40px 0 80px;">
+  <section class="page-hero" style="text-align:center; padding-bottom:20px;">
+    <div class="eyebrow" style="justify-content:center; display:flex;">Custom quote</div>
+    <h1 style="margin:0 auto;">Doesn't fit the packages? Tell us what you need.</h1>
+    <p style="margin:16px auto 0;">A few details and we'll come back with a fixed price and timeline — usually within a couple of days.</p>
+  </section>
+
+  <div class="form-card">
+    <form id="quoteForm">
+      <label class="field-label">Name</label>
+      <input type="text" id="name" required>
+      <label class="field-label">Email</label>
+      <input type="email" id="email" required>
+      <label class="field-label">Company / project (optional)</label>
+      <input type="text" id="company">
+      <label class="field-label">Rough budget (optional)</label>
+      <select id="budget">
+        <option value="">Prefer not to say</option>
+        <option value="under-1000">Under €1,000</option>
+        <option value="1000-3000">€1,000 – €3,000</option>
+        <option value="3000-8000">€3,000 – €8,000</option>
+        <option value="8000+">€8,000+</option>
+      </select>
+      <label class="field-label">What are you building?</label>
+      <textarea id="message" required placeholder="A sentence or two is plenty to start."></textarea>
+      <button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">Send request</button>
+      <div id="err" class="form-error" style="display:none;"></div>
+      <div id="ok" class="form-success" style="display:none;"></div>
+    </form>
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script type="module">
+  import { renderHeader, renderFooter } from './assets/site-chrome.js';
+  import { supabase } from './shared/supabaseClient.js';
+
+  renderHeader('quote.html');
+  renderFooter();
+
+  document.getElementById('quoteForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('err'), okEl = document.getElementById('ok');
+    errEl.style.display = 'none'; okEl.style.display = 'none';
+
+    const { error } = await supabase.from('quote_requests').insert({
+      name: document.getElementById('name').value,
+      email: document.getElementById('email').value,
+      company: document.getElementById('company').value || null,
+      budget: document.getElementById('budget').value || null,
+      message: document.getElementById('message').value,
+    });
+
+    if (error) {
+      errEl.textContent = "Something went wrong sending that — try again in a moment.";
+      errEl.style.display = 'block';
+      return;
+    }
+    okEl.textContent = "Sent! We'll be in touch soon.";
+    okEl.style.display = 'block';
+    document.getElementById('quoteForm').reset();
+  });
+</script>
+</body>
+</html>
