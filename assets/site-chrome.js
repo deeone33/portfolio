@@ -1,9 +1,11 @@
-import { supabase } from '../shared/supabaseClient.js';
-import { isAdmin as checkIsAdmin } from '../shared/auth.js';
+import { supabase } from '../shared/supabaseClient.js?v3';
+import { isAdmin as checkIsAdmin } from '../shared/auth.js?v3';
+import { getTheme, toggleTheme, themeIcon } from '../shared/theme.js?v3';
 
 const PERSON_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>';
 
 const NAV_LINKS = [
+  { href: 'index.html', label: {en:'Home',et:'Avaleht',ru:'Главная',sv:'Hem'} },
   { href: 'work.html', label: {en:'Work',et:'Töö',ru:'Работы',sv:'Arbete'} },
   { href: 'services.html', label: {en:'Services',et:'Teenused',ru:'Услуги',sv:'Tjänster'} },
   { href: 'pricing.html', label: {en:'Pricing',et:'Hinnad',ru:'Цены',sv:'Priser'} },
@@ -82,6 +84,7 @@ export async function renderHeader(activePath) {
             ${['et','en','ru','sv'].map(l => `<div onclick="window.__setChromeLang('${l}')" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:6px; font-size:13.5px; font-weight:500; cursor:pointer; ${l===getLang()?'color:var(--coral); font-weight:700;':''}">${flagSvg(l)} ${langName(l)}</div>`).join('')}
           </div>
         </div>
+        <button class="account-btn" id="chromeThemeBtn" onclick="window.__toggleChromeTheme()" aria-label="Toggle dark mode">${themeIcon(getTheme())}</button>
         ${accountMenu}
         <a class="cta" href="start-project.html">${t(STRINGS.startProject)}</a>
       </nav>
@@ -90,6 +93,11 @@ export async function renderHeader(activePath) {
 
   window.__setChromeLang = setLang;
   window.__accountSignOut = async () => { await supabase.auth.signOut(); window.location.href = 'index.html'; };
+  window.__toggleChromeTheme = () => {
+    toggleTheme();
+    const btn = document.getElementById('chromeThemeBtn');
+    if (btn) btn.innerHTML = themeIcon(getTheme());
+  };
 }
 
 export function renderFooter() {

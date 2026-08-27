@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Fieldnote — Tier 1 CMS Prototype</title>
+<script>document.documentElement.setAttribute('data-theme', localStorage.getItem('fieldnote_theme') || 'light');</script>
 <style>
   :root{
     --ink:#EEF0F2; --ink2:#F7F8F9; --paper:#1E2126; --coral:#35414F; --oncoral:#F5F6F7; --oncoral-strong:#EEF0F2;
@@ -12,9 +13,18 @@
     --card-a:linear-gradient(160deg,#FAFBFC,#E9ECEF); --card-b:linear-gradient(160deg,#F4F5F7,#E4E7EA); --card-c:linear-gradient(160deg,#F7F8FA,#E7EAED);
     --admin:#C7501F;
   }
+  [data-theme="dark"]{
+    --ink:#14161A; --ink2:#1C1F24; --paper:#EDEFF2; --coral:#8FA8C7; --oncoral:#14161A; --oncoral-strong:#1C1F24;
+    --mint:#8FB3B8; --mute:#9BA3AD; --hair:rgba(255,255,255,.12); --linecol:rgba(255,255,255,.16);
+    --dotcol:rgba(255,255,255,.3); --dashcol:rgba(255,255,255,.2); --shadow:rgba(0,0,0,.5);
+    --glow1:rgba(143,168,199,.14); --glow2:rgba(143,179,184,.12);
+    --card-a:linear-gradient(160deg,#22262C,#1C1F24); --card-b:linear-gradient(160deg,#1E2126,#181B1F); --card-c:linear-gradient(160deg,#242830,#1A1D22);
+  }
   * { box-sizing:border-box; margin:0; padding:0; }
   html{ scroll-behavior:smooth; }
   body{ background:linear-gradient(180deg, #F7F2E6 0%, #EDEDEA 50%, #DFE5EA 100%); background-attachment:fixed; color:var(--paper); font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; overflow-x:hidden; }
+  [data-theme="dark"] body{ background:linear-gradient(180deg, #1B1E23 0%, #16181C 50%, #101214 100%); background-attachment:fixed; }
+  body, .bcard, .plan, .rcard, .wcard, header, footer, .icon-badge, .pstep-icon, .form-card, input, textarea, select{ transition: background-color .25s ease, color .25s ease, border-color .25s ease; }
   .wrap{ max-width:1120px; margin:0 auto; padding:0 44px; }
   a{ color:inherit; text-decoration:none; }
   ul{ list-style:none; }
@@ -50,7 +60,7 @@
   body.admin.edit-mode .section-shell:has(.section-gear:hover){ outline:2px solid var(--admin); outline-offset:-2px; background:rgba(199,80,31,.04); }
   body.admin.edit-mode .box-wrap:has(.reorder-controls button:hover){ outline:2px solid var(--admin); outline-offset:-2px; }
 
-  [data-editpath]{ cursor:text; }
+  body.admin.edit-mode [data-editpath]{ cursor:text; }
   .inline-editing{ outline:2px solid var(--admin) !important; outline-offset:2px; background:rgba(199,80,31,.06); border-radius:4px; }
 
   /* ---------- PANEL (side editor) ---------- */
@@ -315,7 +325,7 @@
 </div>
 
 <script>
-let supabase, checkIsAdmin;
+let supabase, checkIsAdmin, themeMod;
 let currentUser = null;
 /* =========================================================================
    CONTENT MODEL
@@ -331,6 +341,7 @@ const DEFAULT_DATA = {
       order: 0, hidden:false, margin:{mt:0,mb:0},
       logo: { text:{en:'field·note',et:'field·note',ru:'field·note',sv:'field·note'}, style:{size:19,weight:800,italic:false,color:'#1E2126'}, hidden:false },
       navLinks: [
+        {id:'nav0', text:{en:'Home',et:'Avaleht',ru:'Главная',sv:'Hem'}, link:'index.html', hidden:false},
         {id:'nav1', text:{en:'Work',et:'Töö',ru:'Работы',sv:'Arbete'}, link:'work.html', hidden:false},
         {id:'nav2', text:{en:'Services',et:'Teenused',ru:'Услуги',sv:'Tjänster'}, link:'services.html', hidden:false},
         {id:'nav3', text:{en:'Pricing',et:'Hinnad',ru:'Цены',sv:'Priser'}, link:'pricing.html', hidden:false}
@@ -472,8 +483,8 @@ const ICONS = {
 };
 function iconSvg(key){ return ICONS[key] || ICONS.layers; }
 function iconBadgeAttrs(item, idx, baseClass){
-  if (item.tint === 'none') return `class="${baseClass}" style="background:#EEF0F2;border-color:var(--hair);color:var(--mute);"`;
-  if (item.tint) return `class="${baseClass}" style="background:color-mix(in srgb, ${item.tint} 18%, white);border-color:color-mix(in srgb, ${item.tint} 35%, white);color:${item.tint};"`;
+  if (item.tint === 'none') return `class="${baseClass}" style="background:var(--ink);border-color:var(--hair);color:var(--mute);"`;
+  if (item.tint) return `class="${baseClass}" style="background:color-mix(in srgb, ${item.tint} 22%, var(--ink2));border-color:color-mix(in srgb, ${item.tint} 40%, var(--ink2));color:${item.tint};"`;
   return `class="${baseClass} tint-${idx % 6}"`;
 }
 
@@ -545,6 +556,7 @@ function renderHeader(){
             ${['et','en','ru','sv'].map(l=>`<div class="lang-option ${siteData.lang===l?'active':''}" onclick="setLang('${l}')"><span class="lang-flag">${flagSvg(l)}</span>${langName(l)}</div>`).join('')}
           </div>
         </div>
+        <button class="account-btn" id="themeToggleBtn" onclick="handleThemeToggle()" aria-label="Toggle dark mode">${themeSvg()}</button>
         ${accountMenu}
         <a class="cta editable" data-kind="headerCta" href="${h.ctaLink}">${t(h.ctaText)}<span class="edit-pencil">✎</span></a>
       </nav>
@@ -554,6 +566,15 @@ function renderHeader(){
 async function accountSignOut(){
   await supabase.auth.signOut();
   window.location.href = 'index.html';
+}
+function themeSvg(){
+  if (!themeMod) return '';
+  return themeMod.themeIcon(themeMod.getTheme());
+}
+function handleThemeToggle(){
+  themeMod.toggleTheme();
+  const btn = document.getElementById('themeToggleBtn');
+  if (btn) btn.innerHTML = themeMod.themeIcon(themeMod.getTheme());
 }
 
 function renderHero(){
@@ -1600,8 +1621,9 @@ async function savePageContent(pageSlug, content){
 
 /* ---------------- INIT ---------------- */
 (async function initAuth(){
-  const clientMod = await import('./shared/supabaseClient.js');
-  const authMod = await import('./shared/auth.js');
+  const clientMod = await import('./shared/supabaseClient.js?v3');
+  const authMod = await import('./shared/auth.js?v3');
+  themeMod = await import('./shared/theme.js?v3');
   supabase = clientMod.supabase;
   checkIsAdmin = authMod.isAdmin;
 

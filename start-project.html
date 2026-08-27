@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>Start a project — Fieldnote</title>
-<link rel="stylesheet" href="assets/styles.css">
+<script>document.documentElement.setAttribute('data-theme', localStorage.getItem('fieldnote_theme') || 'light');</script>
+<link rel="stylesheet" href="assets/styles.css?v3">
 </head>
 <body>
 
@@ -244,9 +245,9 @@ async function confirmSave(){
 }
 
 (async function init(){
-  const clientMod = await import('./shared/supabaseClient.js');
-  const authMod = await import('./shared/auth.js');
-  cms = await import('./shared/cms-core.js');
+  const clientMod = await import('./shared/supabaseClient.js?v3');
+  const authMod = await import('./shared/auth.js?v3');
+  cms = await import('./shared/cms-core.js?v3');
   supabase = clientMod.supabase;
   checkIsAdmin = authMod.isAdmin;
 
@@ -273,7 +274,7 @@ async function confirmSave(){
     onChanged: (changed) => { if (changed) markChanged(); render(); }
   });
 
-  const { renderHeader, renderFooter } = await import('./assets/site-chrome.js');
+  const { renderHeader, renderFooter } = await import('./assets/site-chrome.js?v3');
   renderHeader('start-project.html');
   renderFooter();
 

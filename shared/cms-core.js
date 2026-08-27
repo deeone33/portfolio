@@ -29,10 +29,10 @@ export function iconSvg(key){ return ICONS[key] || ICONS.layers; }
 export const TINT_PRESETS = ['#B85C42','#4C7A52','#3D6690','#9C7A2E','#6C5A94','#B14A6E'];
 
 export function iconBadgeAttrs(item, idx, baseClass){
-  if (item.tint === 'none') return `class="${baseClass}" style="background:#EEF0F2;border-color:#D8DCE1;color:#5B6169;"`;
-  if (item.tint) return `class="${baseClass}" style="background:color-mix(in srgb, ${item.tint} 18%, white);border-color:color-mix(in srgb, ${item.tint} 35%, white);color:${item.tint};"`;
+  if (item.tint === 'none') return `class="${baseClass}" style="background:var(--ink);border-color:var(--hair);color:var(--mute);"`;
+  if (item.tint) return `class="${baseClass}" style="background:color-mix(in srgb, ${item.tint} 22%, var(--ink2));border-color:color-mix(in srgb, ${item.tint} 40%, var(--ink2));color:${item.tint};"`;
   const c = TINT_PRESETS[idx % TINT_PRESETS.length];
-  return `class="${baseClass}" style="background:color-mix(in srgb, ${c} 18%, white);border-color:color-mix(in srgb, ${c} 35%, white);color:${c};"`;
+  return `class="${baseClass}" style="background:color-mix(in srgb, ${c} 22%, var(--ink2));border-color:color-mix(in srgb, ${c} 40%, var(--ink2));color:${c};"`;
 }
 
 export function tintPickerHtml(item, setterFnName){

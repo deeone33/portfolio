@@ -3,9 +3,16 @@
   --mint:#4E6570; --mute:#50565F; --hair:rgba(30,33,38,.10); --linecol:rgba(30,33,38,.14);
   --shadow:rgba(20,22,26,.14); --admin:#C7501F; --danger:#A1352A;
 }
+[data-theme="dark"]{
+  --ink:#14161A; --ink2:#1C1F24; --paper:#EDEFF2; --coral:#8FA8C7; --oncoral:#14161A; --oncoral-strong:#1C1F24;
+  --mint:#8FB3B8; --mute:#9BA3AD; --hair:rgba(255,255,255,.12); --linecol:rgba(255,255,255,.16);
+  --shadow:rgba(0,0,0,.5); --danger:#D9695C;
+}
 *{box-sizing:border-box; margin:0; padding:0;}
 html{scroll-behavior:smooth;}
-body{background:linear-gradient(180deg, #F7F2E6 0%, #EDEDEA 50%, #DFE5EA 100%); background-attachment:fixed; color:var(--paper); font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;}
+body{background:linear-gradient(180deg, #F7F2E6 0%, #EDEDEA 50%, #DFE5EA 100%); background-attachment:fixed; color:var(--paper); font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; transition:background-color .25s ease, color .25s ease;}
+[data-theme="dark"] body{background:linear-gradient(180deg, #1B1E23 0%, #16181C 50%, #101214 100%); background-attachment:fixed;}
+.card-grid > *, .plans > *, .form-card, .info-card, header.site, footer.site{ transition: background-color .25s ease, color .25s ease, border-color .25s ease; }
 .wrap{max-width:1120px; margin:0 auto; padding:0 44px;}
 a{color:inherit; text-decoration:none;}
 ul{list-style:none;}
@@ -131,7 +138,7 @@ footer.site a:hover{color:var(--paper);}
 body.cms-edit .cms-editable:hover{ outline:1.5px dashed var(--admin); outline-offset:4px; border-radius:4px; }
 .cms-edit-pencil{ display:none; position:absolute; top:-12px; right:-12px; width:26px; height:26px; border-radius:50%; background:var(--admin); color:#fff; align-items:center; justify-content:center; font-size:12px; cursor:pointer; z-index:15; box-shadow:0 4px 10px rgba(0,0,0,.25); }
 body.cms-edit .cms-editable:hover .cms-edit-pencil{ display:flex; }
-[data-editpath]{ cursor:text; }
+body.cms-edit [data-editpath]{ cursor:text; }
 .inline-editing{ outline:2px solid var(--admin) !important; outline-offset:2px; background:rgba(199,80,31,.06); border-radius:4px; }
 
 .cms-reorder{ display:none; position:absolute; top:-12px; left:-12px; flex-direction:column; gap:3px; z-index:15; }

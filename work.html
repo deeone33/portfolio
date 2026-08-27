@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>Work — Fieldnote</title>
-<link rel="stylesheet" href="assets/styles.css">
+<script>document.documentElement.setAttribute('data-theme', localStorage.getItem('fieldnote_theme') || 'light');</script>
+<link rel="stylesheet" href="assets/styles.css?v3">
 <style>
   .work-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:20px; padding-bottom:60px;}
   .work-card{border-radius:16px; overflow:hidden; border:1px solid var(--hair); background:var(--ink2); box-shadow:0 2px 10px -6px var(--shadow); transition:.18s ease; position:relative;}
@@ -323,9 +324,9 @@ async function confirmSave(){
 }
 
 (async function init(){
-  const clientMod = await import('./shared/supabaseClient.js');
-  const authMod = await import('./shared/auth.js');
-  cms = await import('./shared/cms-core.js');
+  const clientMod = await import('./shared/supabaseClient.js?v3');
+  const authMod = await import('./shared/auth.js?v3');
+  cms = await import('./shared/cms-core.js?v3');
   supabase = clientMod.supabase;
   checkIsAdmin = authMod.isAdmin;
 
@@ -352,7 +353,7 @@ async function confirmSave(){
     onChanged: (changed) => { if (changed) markChanged(); render(); }
   });
 
-  const { renderHeader, renderFooter } = await import('./assets/site-chrome.js');
+  const { renderHeader, renderFooter } = await import('./assets/site-chrome.js?v3');
   renderHeader('work.html');
   renderFooter();
 

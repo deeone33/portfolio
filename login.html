@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>Sign in — Fieldnote</title>
-<link rel="stylesheet" href="assets/styles.css">
+<script>document.documentElement.setAttribute('data-theme', localStorage.getItem('fieldnote_theme') || 'light');</script>
+<link rel="stylesheet" href="assets/styles.css?v3">
 </head>
 <body>
 <div id="site-header"></div>
@@ -17,9 +18,9 @@
 <div id="site-footer"></div>
 
 <script type="module">
-  import { renderHeader, renderFooter } from './assets/site-chrome.js';
-  import { supabase } from './shared/supabaseClient.js';
-  import { signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, signInWithGoogle } from './shared/auth.js';
+  import { renderHeader, renderFooter } from './assets/site-chrome.js?v3';
+  import { supabase } from './shared/supabaseClient.js?v3';
+  import { signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, signInWithGoogle } from './shared/auth.js?v3';
 
   renderHeader('login.html');
   renderFooter();

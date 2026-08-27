@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>Pricing — Fieldnote</title>
-<link rel="stylesheet" href="assets/styles.css">
+<script>document.documentElement.setAttribute('data-theme', localStorage.getItem('fieldnote_theme') || 'light');</script>
+<link rel="stylesheet" href="assets/styles.css?v3">
 </head>
 <body>
 
@@ -78,7 +79,7 @@ let currentEditId = null;
 let selectedPlan = null;
 
 // NOTE: `planKey` on each plan below MUST stay one of 'starter' / 'standard' /
-// 'fullbuild' — those are what shared/orders.js's PLANS map uses to decide
+// 'fullbuild' — those are what shared/orders.js?v3's PLANS map uses to decide
 // what Stripe actually charges. That's why price editing isn't offered on
 // this page: if the displayed price could drift from the real charged price,
 // customers would see one number and get billed another. Renaming, rewriting
@@ -304,10 +305,10 @@ async function startPlanCheckout(planKey){
 function closeNotesModal(){ document.getElementById('notesModal').classList.remove('open'); }
 
 (async function init(){
-  const clientMod = await import('./shared/supabaseClient.js');
-  const authMod = await import('./shared/auth.js');
-  cms = await import('./shared/cms-core.js');
-  orders = await import('./shared/orders.js');
+  const clientMod = await import('./shared/supabaseClient.js?v3');
+  const authMod = await import('./shared/auth.js?v3');
+  cms = await import('./shared/cms-core.js?v3');
+  orders = await import('./shared/orders.js?v3');
   supabase = clientMod.supabase;
   checkIsAdmin = authMod.isAdmin;
 
@@ -350,7 +351,7 @@ function closeNotesModal(){ document.getElementById('notesModal').classList.remo
     }
   });
 
-  const { renderHeader, renderFooter } = await import('./assets/site-chrome.js');
+  const { renderHeader, renderFooter } = await import('./assets/site-chrome.js?v3');
   renderHeader('pricing.html');
   renderFooter();
 
