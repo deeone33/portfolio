@@ -89,6 +89,13 @@ create table orders (
   updated_at timestamptz default now()
 );
 
+-- Second FK on the same column, pointing at profiles instead of auth.users.
+-- Both are valid (profiles.id always equals the matching auth.users.id via
+-- the handle_new_user trigger) — this one exists purely so PostgREST has a
+-- direct relationship to join through when the admin backoffice asks for
+-- "this order's customer name and email" in one query.
+alter table orders add constraint orders_profile_fk foreign key (user_id) references profiles(id);
+
 -- Files delivered to the customer for an order (uploaded by staff)
 create table order_files (
   id uuid primary key default gen_random_uuid(),

@@ -54,7 +54,13 @@
   if (params.get('paid')) banner.innerHTML = `<div class="form-success">Payment received — thanks! We'll be in touch shortly.</div>`;
   if (params.get('cancelled')) banner.innerHTML = `<div class="form-error">Checkout was cancelled — no charge was made.</div>`;
 
-  const orders = await getMyOrders(user.id);
+  let orders = [];
+  try {
+    orders = await getMyOrders(user.id);
+  } catch (err) {
+    console.error(err);
+    banner.innerHTML = `<div class="form-error">Couldn't load your orders: ${err.message}</div>`;
+  }
   const listEl = document.getElementById('ordersList');
 
   if (!orders.length) {

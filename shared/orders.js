@@ -62,7 +62,10 @@ export async function getAllOrders() {
     .from('orders')
     .select('*, profiles(full_name, email), order_files(*), order_comments(*)')
     .order('created_at', { ascending: false });
-  if (error) throw error;
+  if (error) {
+    console.error('getAllOrders failed:', error);
+    throw new Error(`Could not load orders: ${error.message} (code: ${error.code || 'unknown'})`);
+  }
   return data;
 }
 

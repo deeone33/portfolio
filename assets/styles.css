@@ -56,12 +56,12 @@ nav.site .cta:hover{background:var(--paper); color:var(--ink); transform:transla
 .info-card p{font-size:13.5px; color:var(--mute); line-height:1.55;}
 
 /* ---------- FORMS ---------- */
-.form-card{max-width:520px; margin:0 auto; background:var(--ink2); border:1px solid var(--hair); border-radius:16px; padding:36px;}
+.form-card{max-width:520px; margin:0 auto; background:#fff; border:1px solid #DDE1E6; border-radius:16px; padding:36px; box-shadow:0 20px 50px -20px var(--shadow);}
 .form-card h2{font-size:22px; font-weight:800; margin-bottom:6px;}
 .form-card .sub{font-size:13.5px; color:var(--mute); margin-bottom:24px;}
 label.field-label{display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); margin:16px 0 6px;}
 input[type=text], input[type=email], input[type=password], input[type=tel], textarea, select{
-  width:100%; padding:12px 14px; border:1px solid var(--hair); border-radius:8px; font-size:14px; font-family:inherit; background:#fff; color:var(--paper);
+  width:100%; padding:12px 14px; border:1px solid #D5D9DE; border-radius:8px; font-size:14px; font-family:inherit; background:#F4F5F7; color:var(--paper);
 }
 textarea{min-height:100px; resize:vertical;}
 .form-error{background:#FBEDEA; color:var(--danger); border:1px solid #E2A79C; border-radius:8px; padding:10px 14px; font-size:13px; margin-top:14px;}
@@ -70,7 +70,7 @@ textarea{min-height:100px; resize:vertical;}
 .form-links a{color:var(--coral); font-weight:600;}
 .divider{display:flex; align-items:center; gap:12px; margin:22px 0; color:var(--mute); font-size:12px;}
 .divider::before, .divider::after{content:''; flex:1; height:1px; background:var(--hair);}
-.google-btn{width:100%; display:flex; align-items:center; justify-content:center; gap:10px; padding:12px; border:1px solid var(--hair); border-radius:100px; background:#fff; font-weight:600; font-size:14px; cursor:pointer; transition:.15s ease;}
+.google-btn{width:100%; display:flex; align-items:center; justify-content:center; gap:10px; padding:12px; border:1px solid #D5D9DE; border-radius:100px; background:#fff; font-weight:600; font-size:14px; cursor:pointer; transition:.15s ease;}
 .google-btn:hover{background:var(--ink2); border-color:var(--paper);}
 
 /* ---------- PRICING (reused from homepage plan cards) ---------- */

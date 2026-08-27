@@ -65,8 +65,14 @@
   });
 
   async function load(){
-    allOrders = await getAllOrders();
-    draw();
+    try {
+      allOrders = await getAllOrders();
+      draw();
+    } catch (err) {
+      document.getElementById('ordersList').innerHTML =
+        `<div class="form-error">${err.message}</div>`;
+      console.error(err);
+    }
   }
   function draw(){
     const list = currentFilter === 'all' ? allOrders : allOrders.filter(o => o.status === currentFilter);

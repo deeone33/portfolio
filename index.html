@@ -276,7 +276,7 @@
     <button class="hidden-btn" onclick="openHiddenDrawer()">Hidden elements (<span id="hiddenCount">0</span>)</button>
     <button class="hidden-btn" onclick="undo()">Undo</button>
     <button class="hidden-btn" onclick="resetToDefault()">Reset to defaults</button>
-    <button class="publish" onclick="openPublish()">Publish changes</button>
+    <button class="publish" onclick="openPublish()">Save changes</button>
     <button class="exit" onclick="exitAdmin()">Exit admin</button>
   </div>
 </div>
@@ -297,10 +297,12 @@
 <div class="modal-backdrop" id="publish-modal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('publish-modal')">✕</button>
-    <h3>Publish changes</h3>
-    <p>This is the exact JSON payload that would be sent to Supabase (<code>page_elements</code> table) in the real build. For now it's saved to your browser's local storage.</p>
+    <h3>Save changes</h3>
+    <p style="background:#FBEBD6; color:#8A5A00; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:12px;">
+      <strong>Not live for visitors yet.</strong> This CMS currently saves only to your own browser, not to a shared database — a customer visiting the site won't see these edits. This is the raw data that a real "publish to everyone" feature would send to Supabase once that's built.
+    </p>
     <pre id="publishJson"></pre>
-    <button class="go" onclick="confirmPublish()">Save now (local demo)</button>
+    <button class="go" onclick="confirmPublish()">Save to this browser</button>
   </div>
 </div>
 
@@ -1470,7 +1472,7 @@ function openPublish(){
 function confirmPublish(){
   saveLocal();
   closeModal('publish-modal');
-  alert('Saved locally. In the real build this writes to Supabase and is live immediately for all visitors.');
+  alert('Saved to this browser only. Other visitors and other devices will not see this change yet — that requires wiring the CMS to Supabase, which is not done yet.');
 }
 
 /* ---------------- INIT ---------------- */
