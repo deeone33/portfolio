@@ -31,24 +31,24 @@
 
   /* ---------- EDIT AFFORDANCES ---------- */
   .editable{ position:relative; }
-  body.admin .editable:hover{ outline:1.5px dashed var(--admin); outline-offset:4px; border-radius:4px; }
+  body.admin.edit-mode .editable:hover{ outline:1.5px dashed var(--admin); outline-offset:4px; border-radius:4px; }
   .edit-pencil{ display:none; position:absolute; top:-12px; right:-12px; width:26px; height:26px; border-radius:50%; background:var(--admin); color:#fff; align-items:center; justify-content:center; font-size:12px; cursor:pointer; z-index:15; box-shadow:0 4px 10px rgba(0,0,0,.25); }
-  body.admin .editable:hover .edit-pencil{ display:flex; }
+  body.admin.edit-mode .editable:hover .edit-pencil{ display:flex; }
   /* Nav links sit tight against each other — a full-size pencil at the default offset
      overlaps the next link and makes it unclear (and hard) to click. Smaller + tucked in. */
   nav .link .edit-pencil, nav .cta .edit-pencil{ width:18px; height:18px; font-size:9px; top:-8px; right:-8px; }
   nav{ gap:26px; } /* a little more breathing room now that pencils sit inside that gap */
   .reorder-controls{ display:none; position:absolute; top:-12px; left:-12px; flex-direction:column; gap:3px; z-index:15; }
-  body.admin .box-wrap:hover .reorder-controls{ display:flex; }
+  body.admin.edit-mode .box-wrap:hover .reorder-controls{ display:flex; }
   .reorder-controls button{ width:22px; height:18px; border:none; background:var(--paper); color:#fff; font-size:10px; cursor:pointer; border-radius:4px; }
   .section-gear{ display:none; position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.9); border:1px solid var(--hair); align-items:center; justify-content:center; cursor:pointer; font-size:13px; z-index:12; }
-  body.admin .section-shell:hover .section-gear{ display:flex; }
+  body.admin.edit-mode .section-shell:hover .section-gear{ display:flex; }
   .section-shell{ position:relative; }
 
   /* Hovering the gear/arrows highlights exactly which section or box they control —
      answers "which box is this cogwheel attached to" the way devtools inspect does. */
-  body.admin .section-shell:has(.section-gear:hover){ outline:2px solid var(--admin); outline-offset:-2px; background:rgba(199,80,31,.04); }
-  body.admin .box-wrap:has(.reorder-controls button:hover){ outline:2px solid var(--admin); outline-offset:-2px; }
+  body.admin.edit-mode .section-shell:has(.section-gear:hover){ outline:2px solid var(--admin); outline-offset:-2px; background:rgba(199,80,31,.04); }
+  body.admin.edit-mode .box-wrap:has(.reorder-controls button:hover){ outline:2px solid var(--admin); outline-offset:-2px; }
 
   [data-editpath]{ cursor:text; }
   .inline-editing{ outline:2px solid var(--admin) !important; outline-offset:2px; background:rgba(199,80,31,.06); border-radius:4px; }
@@ -242,7 +242,7 @@
   .wcard-add:hover{ border-color:var(--coral); color:var(--coral); background:var(--ink2); }
   .wcard-add span{ font-size:24px; font-weight:400; line-height:1; }
   .wcard-arrows{ display:none; position:absolute; top:8px; right:8px; gap:4px; z-index:5; }
-  body.admin .wcard:hover .wcard-arrows{ display:flex; }
+  body.admin.edit-mode .wcard:hover .wcard-arrows{ display:flex; }
   .wcard-arrows button{ width:22px; height:22px; border:none; background:rgba(255,255,255,.92); color:var(--paper); font-size:11px; border-radius:5px; cursor:pointer; }
 
   /* ---------- REVIEWS ---------- */
@@ -271,12 +271,19 @@
 <body>
 
 <div id="adminbar">
-  <div class="left"><span class="dot"></span><span>Admin mode — click any element to edit</span></div>
+  <div class="left">
+    <span class="dot"></span>
+    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
+      <input type="checkbox" id="editModeToggle" checked onchange="toggleEditMode(this.checked)">
+      Edit mode
+    </label>
+  </div>
   <div class="left">
     <button class="hidden-btn" onclick="openHiddenDrawer()">Hidden elements (<span id="hiddenCount">0</span>)</button>
     <button class="hidden-btn" onclick="undo()">Undo</button>
+    <button class="hidden-btn" onclick="discardChanges()">Discard changes</button>
     <button class="hidden-btn" onclick="resetToDefault()">Reset to defaults</button>
-    <button class="publish" onclick="openPublish()">Save changes</button>
+    <button class="publish" id="saveBtn" onclick="openPublish()">Save changes</button>
     <button class="exit" onclick="exitAdmin()">Exit admin</button>
   </div>
 </div>
@@ -298,11 +305,12 @@
   <div class="modal">
     <button class="modal-close" onclick="closeModal('publish-modal')">✕</button>
     <h3>Save changes</h3>
-    <p style="background:#FBEBD6; color:#8A5A00; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:12px;">
-      <strong>Not live for visitors yet.</strong> This CMS currently saves only to your own browser, not to a shared database — a customer visiting the site won't see these edits. This is the raw data that a real "publish to everyone" feature would send to Supabase once that's built.
+    <p style="background:#E6F4EC; color:#1E6B3E; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:12px;">
+      Saving writes this content to Supabase — every visitor to the site will see it immediately, not just this browser.
     </p>
     <pre id="publishJson"></pre>
-    <button class="go" onclick="confirmPublish()">Save to this browser</button>
+    <button class="go" onclick="confirmPublish()">Save — goes live for everyone</button>
+    <div id="publishError" style="display:none; background:#FBEDEA; color:#A1352A; border:1px solid #E2A79C; border-radius:8px; padding:10px 14px; font-size:13px; margin-top:14px;"></div>
   </div>
 </div>
 
@@ -410,19 +418,17 @@ const DEFAULT_DATA = {
 };
 
 let siteData = JSON.parse(JSON.stringify(DEFAULT_DATA));
-try {
-  const saved = localStorage.getItem('fieldnote_content');
-  if (saved) {
-    const parsed = JSON.parse(saved);
-    if (parsed._schema === DEFAULT_DATA._schema) {
-      siteData = parsed;
-    } else {
-      localStorage.removeItem('fieldnote_content'); // stale shape from before a structural change — discard, don't merge
-    }
-  }
-} catch(e){}
+let editModeOn = true;   // separate from login state — can be toggled off without logging out (fix #4)
+let hasUnsavedChanges = false;
+let lastSavedSnapshot = null; // used by "Discard changes" to revert to the last real Supabase save
 
 let isAdmin = false;
+function canEdit(){ return isAdmin && editModeOn; }
+function toggleEditMode(checked){
+  editModeOn = checked;
+  document.body.classList.toggle('edit-mode', editModeOn);
+  render();
+}
 let currentEdit = null; // {kind, path}
 
 function t(field){
@@ -465,6 +471,11 @@ const ICONS = {
   database: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>'
 };
 function iconSvg(key){ return ICONS[key] || ICONS.layers; }
+function iconBadgeAttrs(item, idx, baseClass){
+  if (item.tint === 'none') return `class="${baseClass}" style="background:#EEF0F2;border-color:var(--hair);color:var(--mute);"`;
+  if (item.tint) return `class="${baseClass}" style="background:color-mix(in srgb, ${item.tint} 18%, white);border-color:color-mix(in srgb, ${item.tint} 35%, white);color:${item.tint};"`;
+  return `class="${baseClass} tint-${idx % 6}"`;
+}
 
 /* ---------------- DEFAULT HERO ILLUSTRATION (fanned browser cards) ----------------
    Shown when no hero photo has been uploaded. Pure CSS/SVG, no external image. */
@@ -507,8 +518,8 @@ function renderHeader(){
     `<a class="link editable" data-kind="navlink" data-id="${n.id}" data-editpath="header.navLinks[${n.id}].text" href="${n.link}">${t(n.text)}<span class="edit-pencil">✎</span></a>`
   ).join('');
   return `
-  <div class="section-shell" style="${marginStyle(h.margin)}">
-    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('header')">⚙</div>`:''}
+  <div class="section-shell" id="section-header" style="${marginStyle(h.margin)}">
+    ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('header')">⚙</div>`:''}
     <header>
       <div class="logo editable" data-kind="text" data-path="header.logo" data-editpath="header.logo.text" style="font-size:${h.logo.style.size}px;font-weight:${h.logo.style.weight};font-style:${h.logo.style.italic?'italic':'normal'};color:${h.logo.style.color}">
         ${t(h.logo.text)}<span class="edit-pencil">✎</span>
@@ -533,8 +544,8 @@ function renderHeader(){
 function renderHero(){
   const h = siteData.sections.hero;
   return `
-  <div class="section-shell" style="${marginStyle(h.margin)}">
-    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('hero')">⚙</div>`:''}
+  <div class="section-shell" id="section-hero" style="${marginStyle(h.margin)}">
+    ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('hero')">⚙</div>`:''}
     <section class="hero">
       <div class="glow"></div>
       <div class="hero-grid">
@@ -548,7 +559,7 @@ function renderHero(){
         </div>
         <div class="hero-visual">
           ${h.visual.image
-            ? `<img class="uploaded-img" style="height:${h.visual.height}px;" src="${h.visual.image}">`
+            ? `<img id="heroUploadedImg" class="uploaded-img" style="height:${h.visual.height}px;" src="${h.visual.image}">`
             : heroIllustration()}
         </div>
       </div>
@@ -561,8 +572,8 @@ function renderStrip(){
   const items = s.items.filter(i=>!i.hidden).map(i =>
     `<span class="editable" data-kind="stripItem" data-id="${i.id}">${t(i.text)}<span class="edit-pencil">✎</span></span>`
   ).join('');
-  return `<div class="section-shell" style="${marginStyle(s.margin)}">
-    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('strip')">⚙</div>`:''}
+  return `<div class="section-shell" id="section-strip" style="${marginStyle(s.margin)}">
+    ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('strip')">⚙</div>`:''}
     <div class="strip"><div class="track">${items}</div></div>
   </div>`;
 }
@@ -571,12 +582,12 @@ function renderBento(){
   const b = siteData.sections.bento;
   const cards = [...b.cards].filter(c=>!c.hidden).sort((a,c)=>a.order-c.order).map((c,idx,arr) => `
     <div class="bcard box-wrap editable" data-kind="bentoCard" data-id="${c.id}" style="--span:${c.span}; ${c.bg?`background:${c.bg};`:''} ${c.image?`background-image:url(${c.image});background-size:cover;background-position:center;`:''}">
-      ${isAdmin?`<div class="reorder-controls">
+      ${canEdit()?`<div class="reorder-controls">
         <button onclick="moveItem('bento.cards','${c.id}',-1)" ${idx===0?'disabled':''}>↑</button>
         <button onclick="moveItem('bento.cards','${c.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
       </div>`:''}
       <div>
-        <div class="icon-badge tint-${idx % 6}">${iconSvg(c.icon)}</div>
+        <div ${iconBadgeAttrs(c, idx, 'icon-badge')}>${iconSvg(c.icon)}</div>
         <div class="n" data-editpath="bento.cards[${c.id}].n">${t(c.n)}</div>
       </div>
       <div><h3 data-editpath="bento.cards[${c.id}].title">${t(c.title)}</h3><p data-editpath="bento.cards[${c.id}].desc">${t(c.desc)}</p></div>
@@ -584,8 +595,8 @@ function renderBento(){
     </div>`).join('');
   const addTile = isAdmin ? `<div class="bcard add-tile" style="--span:2;" onclick="addBentoCard()"><span>+</span><div>Add card</div></div>` : '';
   const notHidden = (o)=>!o.hidden;
-  return `<div class="section-shell" style="${marginStyle(b.margin)}">
-    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('bento')">⚙</div>`:''}
+  return `<div class="section-shell" id="section-bento" style="${marginStyle(b.margin)}">
+    ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('bento')">⚙</div>`:''}
     <div class="section-head">
       ${notHidden(b.heading)?`<h2 class="editable" data-kind="text" data-path="bento.heading" data-editpath="bento.heading.text" style="font-size:${b.heading.style.size}px;font-weight:${b.heading.style.weight};color:${b.heading.style.color}">${t(b.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
       ${notHidden(b.sub)?`<p class="editable" data-kind="text" data-path="bento.sub" data-editpath="bento.sub.text" style="font-size:${b.sub.style.size}px;color:${b.sub.style.color}">${t(b.sub.text)}<span class="edit-pencil">✎</span></p>`:''}
@@ -610,21 +621,21 @@ function renderProcess(){
   const visibleSteps = [...p.steps].filter(s=>!s.hidden).sort((a,b)=>a.order-b.order);
   const steps = visibleSteps.map((s,idx,arr) => `
     <div class="pstep box-wrap editable" data-kind="processStep" data-id="${s.id}">
-      ${isAdmin?`<div class="reorder-controls">
+      ${canEdit()?`<div class="reorder-controls">
         <button onclick="moveItem('process.steps','${s.id}',-1)" ${idx===0?'disabled':''}>↑</button>
         <button onclick="moveItem('process.steps','${s.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
       </div>`:''}
       <div class="pstep-head">
         <div class="num">${idx+1}</div>
-        <div class="pstep-icon tint-${idx % 6}">${iconSvg(s.icon)}</div>
+        <div ${iconBadgeAttrs(s, idx, 'pstep-icon')}>${iconSvg(s.icon)}</div>
       </div>
       <h4 data-editpath="process.steps[${s.id}].title">${t(s.title)}</h4><p data-editpath="process.steps[${s.id}].desc">${t(s.desc)}</p>
       <span class="edit-pencil">✎</span>
     </div>`).join('');
   const addTile = isAdmin ? `<div class="pstep add-tile" onclick="addProcessStep()"><span>+</span><div>Add step</div></div>` : '';
-  const colCount = visibleSteps.length + (isAdmin?1:0);
-  return `<div class="section-shell" style="${marginStyle(p.margin)}">
-    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('process')">⚙</div>`:''}
+  const colCount = visibleSteps.length + (canEdit()?1:0);
+  return `<div class="section-shell" id="section-process" style="${marginStyle(p.margin)}">
+    ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('process')">⚙</div>`:''}
     <div class="process">
       <div class="section-head" style="padding-bottom:0">
         ${!p.heading.hidden?`<h2 class="editable" data-kind="text" data-path="process.heading" data-editpath="process.heading.text" style="font-size:${p.heading.style.size}px;font-weight:${p.heading.style.weight};color:${p.heading.style.color}">${t(p.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
@@ -650,7 +661,7 @@ function renderPricing(){
   const visiblePlans = [...pr.plans].filter(p=>!p.hidden).sort((a,b)=>a.order-b.order);
   const plans = visiblePlans.map((p,idx,arr) => `
     <div class="plan box-wrap editable ${p.featured?'feat':''}" data-kind="plan" data-id="${p.id}">
-      ${isAdmin?`<div class="reorder-controls">
+      ${canEdit()?`<div class="reorder-controls">
         <button onclick="moveItem('pricing.plans','${p.id}',-1)" ${idx===0?'disabled':''}>↑</button>
         <button onclick="moveItem('pricing.plans','${p.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
       </div>`:''}
@@ -661,9 +672,9 @@ function renderPricing(){
       <span class="edit-pencil">✎</span>
     </div>`).join('');
   const addTile = isAdmin ? `<div class="plan add-tile" onclick="addPlan()"><span>+</span><div>Add package</div></div>` : '';
-  const colCount = visiblePlans.length + (isAdmin?1:0);
-  return `<div class="section-shell" style="${marginStyle(pr.margin)}">
-    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('pricing')">⚙</div>`:''}
+  const colCount = visiblePlans.length + (canEdit()?1:0);
+  return `<div class="section-shell" id="section-pricing" style="${marginStyle(pr.margin)}">
+    ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('pricing')">⚙</div>`:''}
     <div class="pricing">
       <div class="section-head">
         ${!pr.heading.hidden?`<h2 class="editable" data-kind="text" data-path="pricing.heading" data-editpath="pricing.heading.text" style="font-size:${pr.heading.style.size}px;font-weight:${pr.heading.style.weight};color:${pr.heading.style.color}">${t(pr.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
@@ -693,7 +704,7 @@ function renderShowcase(){
     const targetAttr = isAdmin ? '' : ' target="_blank" rel="noopener"';
     return `
     <div class="wcard" data-kind="showcaseItem" data-id="${it.id}">
-      ${isAdmin?`<div class="wcard-arrows">
+      ${canEdit()?`<div class="wcard-arrows">
         <button onclick="moveItem('showcase.items','${it.id}',-1)" ${idx===0?'disabled':''}>◀</button>
         <button onclick="moveItem('showcase.items','${it.id}',1)" ${idx===arr.length-1?'disabled':''}>▶</button>
         <button onclick="openShowcasePanel('${it.id}')">✎</button>
@@ -711,14 +722,14 @@ function renderShowcase(){
   // seam is invisible because both halves are identical. Admin view stays
   // single-copy (plus the add tile) so editing controls aren't doubled up.
   const trackContent = isAdmin ? (cardsOnce + addTile) : (cardsOnce + cardsOnce);
-  return `<div class="section-shell" style="${marginStyle(w.margin)}">
-    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('showcase')">⚙</div>`:''}
+  return `<div class="section-shell" id="section-showcase" style="${marginStyle(w.margin)}">
+    ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('showcase')">⚙</div>`:''}
     <div class="showcase-head">
       ${!w.heading.hidden?`<h2 class="editable" data-kind="text" data-path="showcase.heading" data-editpath="showcase.heading.text" style="font-size:${w.heading.style.size}px;font-weight:${w.heading.style.weight};color:${w.heading.style.color}">${t(w.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
     </div>
     <div class="showcase-wrap">
       <div class="showcase-edge left"><button onclick="nudgeShowcase(-1)" aria-label="Scroll left">‹</button></div>
-      <div class="showcase-track" id="showcaseTrack" data-loop="${isAdmin?'0':'1'}">${trackContent}</div>
+      <div class="showcase-track" id="showcaseTrack" data-loop="${canEdit()?'0':'1'}">${trackContent}</div>
       <div class="showcase-edge right"><button onclick="nudgeShowcase(1)" aria-label="Scroll right">›</button></div>
     </div>
   </div>`;
@@ -826,7 +837,7 @@ function renderReviews(){
   const visible = [...rv.items].filter(r=>!r.hidden).sort((a,b)=>a.order-b.order);
   const cards = visible.map((r,idx,arr) => `
     <div class="rcard box-wrap editable" data-kind="review" data-id="${r.id}">
-      ${isAdmin?`<div class="reorder-controls">
+      ${canEdit()?`<div class="reorder-controls">
         <button onclick="moveItem('reviews.items','${r.id}',-1)" ${idx===0?'disabled':''}>↑</button>
         <button onclick="moveItem('reviews.items','${r.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
       </div>`:''}
@@ -839,8 +850,8 @@ function renderReviews(){
       <span class="edit-pencil">✎</span>
     </div>`).join('');
   const addTile = isAdmin ? `<div class="rcard add-tile" onclick="addReview()"><span>+</span><div>Add review</div></div>` : '';
-  return `<div class="section-shell" style="${marginStyle(rv.margin)}">
-    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('reviews')">⚙</div>`:''}
+  return `<div class="section-shell" id="section-reviews" style="${marginStyle(rv.margin)}">
+    ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('reviews')">⚙</div>`:''}
     <div class="section-head">
       ${!rv.heading.hidden?`<h2 class="editable" data-kind="text" data-path="reviews.heading" data-editpath="reviews.heading.text" style="font-size:${rv.heading.style.size}px;font-weight:${rv.heading.style.weight};color:${rv.heading.style.color}">${t(rv.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
     </div>
@@ -884,8 +895,8 @@ function saveReview(id){
 
 function renderFooter(){
   const f = siteData.sections.footer;
-  return `<div class="section-shell" style="${marginStyle(f.margin)}">
-    ${isAdmin?`<div class="section-gear" onclick="openSectionPanel('footer')">⚙</div>`:''}
+  return `<div class="section-shell" id="section-footer" style="${marginStyle(f.margin)}">
+    ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('footer')">⚙</div>`:''}
     <footer>
       ${!f.copy.hidden?`<span class="editable" data-kind="text" data-path="footer.copy" data-editpath="footer.copy.text" style="font-size:${f.copy.style.size}px;color:${f.copy.style.color}">${t(f.copy.text)}<span class="edit-pencil">✎</span></span>`:''}
     </footer>
@@ -907,7 +918,16 @@ function personIcon(){ return '<svg width="16" height="16" viewBox="0 0 24 24" f
 
 function setLang(l){ siteData.lang = l; document.getElementById('langSwitch').classList.remove('open'); render(); }
 
-function saveLocal(){ localStorage.setItem('fieldnote_content', JSON.stringify(siteData)); }
+function saveLocal(){
+  hasUnsavedChanges = true;
+  updateSaveButtonState();
+}
+function updateSaveButtonState(){
+  const btn = document.getElementById('saveBtn');
+  if (!btn) return;
+  btn.textContent = hasUnsavedChanges ? 'Save changes •' : 'Save changes';
+  btn.style.opacity = hasUnsavedChanges ? '1' : '.6';
+}
 
 /* ---------------- ADMIN LOGIN ---------------- */
 function openModal(id){ document.getElementById(id).classList.add('open'); }
@@ -962,10 +982,20 @@ function undo(){
   saveLocal(); render();
 }
 function resetToDefault(){
-  if (!confirm('Reset ALL content back to the original defaults? Your current edits will be lost (though Undo can bring back the state right before this reset).')) return;
+  if (!confirm('Reset ALL content back to the ORIGINAL template — not just your last save, the very first starting content. This is rarely what you want; "Discard changes" (which undoes back to your last Save) is usually the right button. Continue with a full factory reset?')) return;
   pushHistory();
   siteData = JSON.parse(JSON.stringify(DEFAULT_DATA));
-  saveLocal(); render();
+  hasUnsavedChanges = true;
+  updateSaveButtonState();
+  render();
+}
+function discardChanges(){
+  if (!hasUnsavedChanges) { alert('Nothing to discard — there are no unsaved changes.'); return; }
+  if (!confirm('Discard all changes since your last Save, and go back to what\'s currently live?')) return;
+  siteData = JSON.parse(JSON.stringify(lastSavedSnapshot || DEFAULT_DATA));
+  hasUnsavedChanges = false;
+  updateSaveButtonState();
+  render();
 }
 
 /* ---------------- INLINE CLICK-TO-EDIT (like Delusions) ----------------
@@ -973,7 +1003,7 @@ function resetToDefault(){
    Click the pencil -> full panel with style/size/hide/image controls.
    Both write to the same underlying data, so they never conflict. */
 document.addEventListener('click', function(e){
-  if (!isAdmin) return;
+  if (!canEdit()) return;
   if (e.target.closest('.edit-pencil')) return; // pencil handles its own click, opens the panel instead
   if (e.target.closest('#panel') || e.target.closest('.modal')) return;
   const target = e.target.closest('[data-editpath]');
@@ -1233,12 +1263,20 @@ function saveCta(kind){
 
 function bentoPanel(c){
   const iconKeys = Object.keys(ICONS);
+  const presets = ['#B85C42','#4C7A52','#3D6690','#9C7A2E','#6C5A94','#B14A6E'];
   return `
     <button class="close-panel" onclick="closePanel()">✕</button>
     <h4>Edit card</h4>
     <div class="sub">Editing language: ${langName(siteData.lang)}</div>
     <label>Icon</label>
     <div class="icon-picker">${iconKeys.map(k=>`<button type="button" class="${c.icon===k?'on':''}" onclick="setCardIcon('${k}')">${ICONS[k]}</button>`).join('')}</div>
+    <label>Icon color</label>
+    <div class="sub" style="margin-bottom:8px;">Pick a preset, go custom, or turn color off entirely.</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
+      ${presets.map(p=>`<button type="button" onclick="setCardTint('${p}')" style="width:26px;height:26px;border-radius:50%;border:2px solid ${c.tint===p?'#1E2126':'transparent'};background:${p};cursor:pointer;padding:0;"></button>`).join('')}
+      <button type="button" onclick="setCardTint('none')" style="width:26px;height:26px;border-radius:50%;border:2px solid ${c.tint==='none'?'#1E2126':'var(--hair)'};background:#EEF0F2;cursor:pointer;padding:0;" title="No color"></button>
+      <input type="color" id="f_customtint" value="${c.tint&&c.tint!=='none'?c.tint:'#35414F'}" oninput="setCardTint(this.value)" style="width:30px;height:26px;padding:0;border:1px solid var(--hair);border-radius:6px;cursor:pointer;">
+    </div>
     <label>Label</label>
     <input type="text" id="f_n" value="${c.n[siteData.lang]}">
     <label>Title</label>
@@ -1265,6 +1303,13 @@ function setCardIcon(key){
   const c = siteData.sections.bento.cards.find(x=>x.id===currentEdit.id);
   c.icon = key;
   document.getElementById('panel').innerHTML = bentoPanel(c);
+  saveLocal();
+}
+function setCardTint(tint){
+  const c = siteData.sections.bento.cards.find(x=>x.id===currentEdit.id);
+  c.tint = tint;
+  document.getElementById('panel').innerHTML = bentoPanel(c);
+  render(); // live preview on the actual card, not just the panel (fix #5)
 }
 let _pendingImg = null;
 function previewImg(e){
@@ -1335,12 +1380,20 @@ function savePlan(id){
 function simpleTextGroupPanel(obj, fields, hideFn){
   const inputs = fields.map(f=>`<label>${f}</label><input type="text" id="f_${f}" value="${obj[f][siteData.lang]}">`).join('');
   const iconKeys = Object.keys(ICONS);
+  const presets = ['#B85C42','#4C7A52','#3D6690','#9C7A2E','#6C5A94','#B14A6E'];
   return `
     <button class="close-panel" onclick="closePanel()">✕</button>
     <h4>Edit step</h4>
     <div class="sub">Editing language: ${langName(siteData.lang)}</div>
     <label>Icon</label>
     <div class="icon-picker">${iconKeys.map(k=>`<button type="button" class="${obj.icon===k?'on':''}" onclick="setStepIcon('${k}')">${ICONS[k]}</button>`).join('')}</div>
+    <label>Icon color</label>
+    <div class="sub" style="margin-bottom:8px;">Pick a preset, go custom, or turn color off entirely.</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
+      ${presets.map(p=>`<button type="button" onclick="setStepTint('${p}')" style="width:26px;height:26px;border-radius:50%;border:2px solid ${obj.tint===p?'#1E2126':'transparent'};background:${p};cursor:pointer;padding:0;"></button>`).join('')}
+      <button type="button" onclick="setStepTint('none')" style="width:26px;height:26px;border-radius:50%;border:2px solid ${obj.tint==='none'?'#1E2126':'var(--hair)'};background:#EEF0F2;cursor:pointer;padding:0;" title="No color"></button>
+      <input type="color" value="${obj.tint&&obj.tint!=='none'?obj.tint:'#35414F'}" oninput="setStepTint(this.value)" style="width:30px;height:26px;padding:0;border:1px solid var(--hair);border-radius:6px;cursor:pointer;">
+    </div>
     ${inputs}
     <button class="go" style="margin-top:20px;" onclick="saveProcessStep('${obj.id}')">Apply</button>
     <button class="danger" onclick="setHidden('processStep','${obj.id}',null,true); closePanel();">Remove (hide, keeps no space)</button>
@@ -1350,6 +1403,13 @@ function setStepIcon(key){
   const p = siteData.sections.process.steps.find(x=>x.id===currentEdit.id);
   p.icon = key;
   document.getElementById('panel').innerHTML = simpleTextGroupPanel(p, ['title','desc']);
+  saveLocal();
+}
+function setStepTint(tint){
+  const p = siteData.sections.process.steps.find(x=>x.id===currentEdit.id);
+  p.tint = tint;
+  document.getElementById('panel').innerHTML = simpleTextGroupPanel(p, ['title','desc']);
+  render();
 }
 function saveProcessStep(id){
   pushHistory();
@@ -1385,7 +1445,7 @@ function openSectionPanel(sectionKey){
     <input type="file" id="f_heroimg" accept="image/*" onchange="previewHeroImg(event)">
     <div class="imgprev" id="heroImgPrev" style="${s.visual.image?`background-image:url(${s.visual.image})`:''}"></div>
     <label>Picture height (px)</label>
-    <input type="range" min="200" max="600" value="${s.visual.height}" oninput="document.getElementById('hhval').textContent=this.value" id="f_hh">
+    <input type="range" min="200" max="600" value="${s.visual.height}" oninput="document.getElementById('hhval').textContent=this.value; const _img=document.getElementById('heroUploadedImg'); if(_img) _img.style.height=this.value+'px';" id="f_hh">
     <div class="sub" id="hhval">${s.visual.height}</div>
     ${s.visual.image ? `<button type="button" onclick="resetHeroVisual()" style="width:100%;padding:9px;border:1px dashed var(--hair);border-radius:6px;background:none;cursor:pointer;font-size:12.5px;color:var(--mute);margin-top:6px;">Remove photo, use illustration instead</button>` : ''}
   ` : '';
@@ -1400,7 +1460,7 @@ function openSectionPanel(sectionKey){
   ` : '';
   const showcaseSpeedHtml = sectionKey === 'showcase' ? `
     <label>Auto-scroll speed</label>
-    <input type="range" min="0" max="3" step="0.1" value="${s.autoplaySpeed}" oninput="document.getElementById('spval').textContent=this.value" id="f_speed">
+    <input type="range" min="0" max="3" step="0.1" value="${s.autoplaySpeed}" oninput="document.getElementById('spval').textContent=this.value; siteData.sections.showcase.autoplaySpeed=parseFloat(this.value);" id="f_speed">
     <div class="sub" id="spval">${s.autoplaySpeed} ${s.autoplaySpeed==0?'(paused)':''}</div>
   ` : '';
   document.getElementById('panel').innerHTML = `
@@ -1408,10 +1468,10 @@ function openSectionPanel(sectionKey){
     <h4>Section spacing</h4>
     <div class="sub">${sectionKey}</div>
     <label>Space above (px)</label>
-    <input type="range" min="-40" max="160" value="${s.margin.mt}" oninput="document.getElementById('mtval').textContent=this.value" id="f_mt">
+    <input type="range" min="-40" max="160" value="${s.margin.mt}" oninput="document.getElementById('mtval').textContent=this.value; document.getElementById('section-${sectionKey}').style.marginTop=this.value+'px';" id="f_mt">
     <div class="sub" id="mtval">${s.margin.mt}</div>
     <label>Space below (px)</label>
-    <input type="range" min="-40" max="160" value="${s.margin.mb}" oninput="document.getElementById('mbval').textContent=this.value" id="f_mb">
+    <input type="range" min="-40" max="160" value="${s.margin.mb}" oninput="document.getElementById('mbval').textContent=this.value; document.getElementById('section-${sectionKey}').style.marginBottom=this.value+'px';" id="f_mb">
     <div class="sub" id="mbval">${s.margin.mb}</div>
     ${heroVisualHtml}
     ${navLinksHtml}
@@ -1469,10 +1529,58 @@ function openPublish(){
   document.getElementById('publishJson').textContent = JSON.stringify(siteData, null, 2);
   openModal('publish-modal');
 }
-function confirmPublish(){
-  saveLocal();
-  closeModal('publish-modal');
-  alert('Saved to this browser only. Other visitors and other devices will not see this change yet — that requires wiring the CMS to Supabase, which is not done yet.');
+async function confirmPublish(){
+  const btn = document.querySelector('#publish-modal .go');
+  const errEl = document.getElementById('publishError');
+  if (errEl) errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    await savePageContent('home', siteData);
+    lastSavedSnapshot = JSON.parse(JSON.stringify(siteData));
+    hasUnsavedChanges = false;
+    updateSaveButtonState();
+    closeModal('publish-modal');
+    alert('Saved — this is now live for every visitor.');
+  } catch (err) {
+    console.error(err);
+    if (errEl) { errEl.textContent = 'Save failed: ' + err.message; errEl.style.display = 'block'; }
+    else alert('Save failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save — goes live for everyone';
+  }
+}
+
+/* ---------------- SUPABASE CONTENT STORE (fix #1) ----------------
+   The CMS's actual published state now lives in the `page_content` table,
+   not this browser's local storage — every visitor loads the same content
+   an admin last saved. DEFAULT_DATA is only ever used as a first-run
+   fallback before anything has been saved for the first time. */
+let cachedSiteId = null;
+async function getSiteId(){
+  if (cachedSiteId) return cachedSiteId;
+  const { data, error } = await supabase.from('sites').select('id').eq('slug','fieldnote').maybeSingle();
+  if (error) { console.error(error); return null; }
+  if (!data) { console.warn("No 'fieldnote' row in the sites table yet — run: insert into sites (slug) values ('fieldnote');"); return null; }
+  cachedSiteId = data.id;
+  return cachedSiteId;
+}
+async function loadPageContent(pageSlug){
+  const siteId = await getSiteId();
+  if (!siteId) return null;
+  const { data, error } = await supabase.from('page_content').select('content').eq('site_id', siteId).eq('page_slug', pageSlug).maybeSingle();
+  if (error) { console.error(error); return null; }
+  return data ? data.content : null;
+}
+async function savePageContent(pageSlug, content){
+  const siteId = await getSiteId();
+  if (!siteId) throw new Error("Site not found in Supabase. Run: insert into sites (slug) values ('fieldnote');");
+  const { error } = await supabase.from('page_content').upsert(
+    { site_id: siteId, page_slug: pageSlug, content, updated_at: new Date().toISOString() },
+    { onConflict: 'site_id,page_slug' }
+  );
+  if (error) throw error;
 }
 
 /* ---------------- INIT ---------------- */
@@ -1482,12 +1590,28 @@ function confirmPublish(){
   supabase = clientMod.supabase;
   checkIsAdmin = authMod.isAdmin;
 
+  // Load the real published content — this runs for every visitor, not just
+  // admins, since this is what makes the site show the same thing to everyone.
+  try {
+    const published = await loadPageContent('home');
+    if (published) {
+      siteData = published;
+      lastSavedSnapshot = JSON.parse(JSON.stringify(published));
+    } else {
+      lastSavedSnapshot = JSON.parse(JSON.stringify(DEFAULT_DATA)); // nothing saved yet — DEFAULT_DATA is standing in as "last saved"
+    }
+  } catch (err) {
+    console.error('Could not load published content, showing defaults instead:', err);
+    lastSavedSnapshot = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
   currentUser = user || null;
   if (currentUser) {
     isAdmin = await checkIsAdmin(currentUser.id);
     if (isAdmin) {
       document.body.classList.add('admin');
+      document.body.classList.add('edit-mode');
       document.getElementById('adminbar').classList.add('on');
     }
   }
