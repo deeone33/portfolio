@@ -12,6 +12,7 @@
     --glow1:rgba(53,65,79,.10); --glow2:rgba(78,101,112,.08);
     --card-a:linear-gradient(160deg,#FAFBFC,#E9ECEF); --card-b:linear-gradient(160deg,#F4F5F7,#E4E7EA); --card-c:linear-gradient(160deg,#F7F8FA,#E7EAED);
     --admin:#C7501F;
+    --danger:#A1352A;
   }
   [data-theme="dark"]{
     --ink:#14161A; --ink2:#1C1F24; --paper:#EDEFF2; --coral:#8FA8C7; --oncoral:#14161A; --oncoral-strong:#1C1F24;
@@ -19,6 +20,7 @@
     --dotcol:rgba(255,255,255,.3); --dashcol:rgba(255,255,255,.2); --shadow:rgba(0,0,0,.5);
     --glow1:rgba(143,168,199,.14); --glow2:rgba(143,179,184,.12);
     --card-a:linear-gradient(160deg,#22262C,#1C1F24); --card-b:linear-gradient(160deg,#1E2126,#181B1F); --card-c:linear-gradient(160deg,#242830,#1A1D22);
+    --danger:#D9695C;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   html{ scroll-behavior:smooth; }
@@ -167,6 +169,12 @@
   .icon-badge.tint-3{ background:#F3E6C8; border:1px solid #E6D2A0; color:#9C7A2E; }
   .icon-badge.tint-4{ background:#E7E0EF; border:1px solid #D4C7E3; color:#6C5A94; }
   .icon-badge.tint-5{ background:#F3DCE3; border:1px solid #E7C2CE; color:#B14A6E; }
+  [data-theme="dark"] .icon-badge.tint-0{ background:#3A2A22; border-color:#4A362A; color:#E0A88F; }
+  [data-theme="dark"] .icon-badge.tint-1{ background:#22322A; border-color:#2E4236; color:#9FCBAA; }
+  [data-theme="dark"] .icon-badge.tint-2{ background:#20303E; border-color:#2A4054; color:#9BC0E0; }
+  [data-theme="dark"] .icon-badge.tint-3{ background:#3A3020; border-color:#4E4028; color:#E0C285; }
+  [data-theme="dark"] .icon-badge.tint-4{ background:#302838; border-color:#40364C; color:#C6ADE0; }
+  [data-theme="dark"] .icon-badge.tint-5{ background:#3A2430; border-color:#4E3040; color:#E0A2BE; }
   .icon-badge svg{ width:18px; height:18px; }
   .pstep-head{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
   .pstep-icon{ width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
@@ -176,6 +184,12 @@
   .pstep-icon.tint-3{ background:#F3E6C8; border:1px solid #E6D2A0; color:#9C7A2E; }
   .pstep-icon.tint-4{ background:#E7E0EF; border:1px solid #D4C7E3; color:#6C5A94; }
   .pstep-icon.tint-5{ background:#F3DCE3; border:1px solid #E7C2CE; color:#B14A6E; }
+  [data-theme="dark"] .pstep-icon.tint-0{ background:#3A2A22; border-color:#4A362A; color:#E0A88F; }
+  [data-theme="dark"] .pstep-icon.tint-1{ background:#22322A; border-color:#2E4236; color:#9FCBAA; }
+  [data-theme="dark"] .pstep-icon.tint-2{ background:#20303E; border-color:#2A4054; color:#9BC0E0; }
+  [data-theme="dark"] .pstep-icon.tint-3{ background:#3A3020; border-color:#4E4028; color:#E0C285; }
+  [data-theme="dark"] .pstep-icon.tint-4{ background:#302838; border-color:#40364C; color:#C6ADE0; }
+  [data-theme="dark"] .pstep-icon.tint-5{ background:#3A2430; border-color:#4E3040; color:#E0A2BE; }
   .pstep-icon svg{ width:15px; height:15px; }
 
   .icon-picker{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-top:4px; }
@@ -246,6 +260,10 @@
   .wcard .wthumb.p1{ background:linear-gradient(135deg,#DCE6E9,#C9DADD); }
   .wcard .wthumb.p2{ background:linear-gradient(135deg,#E6E1EC,#D6CEE0); }
   .wcard .wthumb.p3{ background:linear-gradient(135deg,#DEE7DA,#C9D9C4); }
+  [data-theme="dark"] .wcard .wthumb.p0{ background:linear-gradient(135deg,#3A2E24,#2A211A); }
+  [data-theme="dark"] .wcard .wthumb.p1{ background:linear-gradient(135deg,#22323A,#1A272E); }
+  [data-theme="dark"] .wcard .wthumb.p2{ background:linear-gradient(135deg,#302A3A,#241F2C); }
+  [data-theme="dark"] .wcard .wthumb.p3{ background:linear-gradient(135deg,#2A3324,#20281C); }
   .wcard .wthumb.placeholder svg{ width:34px; height:34px; color:var(--paper); opacity:.35; }
   .wcard .wcaption{ padding:12px 14px; font-size:13px; font-weight:600; }
   .wcard-add{ flex:0 0 150px; border:1.5px dashed var(--hair); border-radius:14px; background:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; color:var(--mute); font-size:13px; font-weight:600; }
@@ -447,6 +465,19 @@ function t(field){
   return field[siteData.lang] || field.en || '';
 }
 
+/* These three hex values are the ORIGINAL, never-customized defaults every
+   text style started with (see DEFAULT_DATA). Since dark mode didn't exist
+   when that system was built, those defaults got baked in as fixed hex
+   colors that ignore the theme entirely — invisible dark-on-dark text in
+   dark mode. This maps them back to the equivalent theme variable so
+   untouched text adapts automatically. Any OTHER color (a color an admin
+   actually picked via the panel) is left exactly as chosen — that's a
+   deliberate choice and intentionally doesn't auto-theme. */
+const THEME_DEFAULT_COLORS = { '#1E2126':'var(--paper)', '#4E6570':'var(--mint)', '#50565F':'var(--mute)' };
+function themeColor(hex){
+  return THEME_DEFAULT_COLORS[hex] || hex;
+}
+
 /* ---------------- ICON LIBRARY (inline SVG, no external requests) ---------------- */
 const ICONS = {
   palette: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a10 10 0 1 0 0 20c1.5 0 2-1 2-2s-.5-1.5-1-2 .5-2 2-2h1a4 4 0 0 0 4-4 8 8 0 0 0-8-10z"/><circle cx="7.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="11" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="9" r="1.2" fill="currentColor" stroke="none"/></svg>',
@@ -535,14 +566,14 @@ function renderHeader(){
       <div class="lang-menu" style="right:0; min-width:160px;">
         <a href="account.html" class="lang-option" style="text-decoration:none;">My account</a>
         <a href="account.html" class="lang-option" style="text-decoration:none;">Orders</a>
-        <div class="lang-option" onclick="accountSignOut()" style="color:#A1352A;">Log out</div>
+        <div class="lang-option" onclick="accountSignOut()" style="color:var(--danger);">Log out</div>
       </div>
     </div>` : `<button class="account-btn" onclick="window.location.href='login.html?returnTo=${encodeURIComponent('index.html')}'" aria-label="Account">${personIcon()}</button>`;
   return `
   <div class="section-shell" id="section-header" style="${marginStyle(h.margin)}">
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('header')">⚙</div>`:''}
     <header>
-      <div class="logo editable" data-kind="text" data-path="header.logo" data-editpath="header.logo.text" style="font-size:${h.logo.style.size}px;font-weight:${h.logo.style.weight};font-style:${h.logo.style.italic?'italic':'normal'};color:${h.logo.style.color}">
+      <div class="logo editable" data-kind="text" data-path="header.logo" data-editpath="header.logo.text" style="font-size:${h.logo.style.size}px;font-weight:${h.logo.style.weight};font-style:${h.logo.style.italic?'italic':'normal'};color:${themeColor(h.logo.style.color)}">
         ${t(h.logo.text)}<span class="edit-pencil">✎</span>
       </div>
       <nav>
@@ -586,9 +617,9 @@ function renderHero(){
       <div class="glow"></div>
       <div class="hero-grid">
         <div>
-          ${!h.eyebrow.hidden?`<div class="eyebrow editable" data-kind="text" data-path="hero.eyebrow" data-editpath="hero.eyebrow.text" style="font-size:${h.eyebrow.style.size}px;font-weight:${h.eyebrow.style.weight};color:${h.eyebrow.style.color}"><span class="bar"></span>${t(h.eyebrow.text)}<span class="edit-pencil">✎</span></div>`:''}
-          ${!h.h1.hidden?`<h1 class="editable" data-kind="text" data-path="hero.h1" data-editpath="hero.h1.text" style="font-size:${h.h1.style.size}px;font-weight:${h.h1.style.weight};font-style:${h.h1.style.italic?'italic':'normal'};color:${h.h1.style.color}">${t(h.h1.text)}<span class="edit-pencil">✎</span></h1>`:''}
-          ${!h.lead.hidden?`<p class="lead editable" data-kind="text" data-path="hero.lead" data-editpath="hero.lead.text" style="font-size:${h.lead.style.size}px;color:${h.lead.style.color}">${t(h.lead.text)}<span class="edit-pencil">✎</span></p>`:''}
+          ${!h.eyebrow.hidden?`<div class="eyebrow editable" data-kind="text" data-path="hero.eyebrow" data-editpath="hero.eyebrow.text" style="font-size:${h.eyebrow.style.size}px;font-weight:${h.eyebrow.style.weight};color:${themeColor(h.eyebrow.style.color)}"><span class="bar"></span>${t(h.eyebrow.text)}<span class="edit-pencil">✎</span></div>`:''}
+          ${!h.h1.hidden?`<h1 class="editable" data-kind="text" data-path="hero.h1" data-editpath="hero.h1.text" style="font-size:${h.h1.style.size}px;font-weight:${h.h1.style.weight};font-style:${h.h1.style.italic?'italic':'normal'};color:${themeColor(h.h1.style.color)}">${t(h.h1.text)}<span class="edit-pencil">✎</span></h1>`:''}
+          ${!h.lead.hidden?`<p class="lead editable" data-kind="text" data-path="hero.lead" data-editpath="hero.lead.text" style="font-size:${h.lead.style.size}px;color:${themeColor(h.lead.style.color)}">${t(h.lead.text)}<span class="edit-pencil">✎</span></p>`:''}
           <div class="hero-ctas">
             <a class="btn-primary editable" data-kind="heroCta" href="${h.ctaLink}">${t(h.ctaPrimary)}<span class="edit-pencil">✎</span></a>
           </div>
@@ -634,8 +665,8 @@ function renderBento(){
   return `<div class="section-shell" id="section-bento" style="${marginStyle(b.margin)}">
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('bento')">⚙</div>`:''}
     <div class="section-head">
-      ${notHidden(b.heading)?`<h2 class="editable" data-kind="text" data-path="bento.heading" data-editpath="bento.heading.text" style="font-size:${b.heading.style.size}px;font-weight:${b.heading.style.weight};color:${b.heading.style.color}">${t(b.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
-      ${notHidden(b.sub)?`<p class="editable" data-kind="text" data-path="bento.sub" data-editpath="bento.sub.text" style="font-size:${b.sub.style.size}px;color:${b.sub.style.color}">${t(b.sub.text)}<span class="edit-pencil">✎</span></p>`:''}
+      ${notHidden(b.heading)?`<h2 class="editable" data-kind="text" data-path="bento.heading" data-editpath="bento.heading.text" style="font-size:${b.heading.style.size}px;font-weight:${b.heading.style.weight};color:${themeColor(b.heading.style.color)}">${t(b.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
+      ${notHidden(b.sub)?`<p class="editable" data-kind="text" data-path="bento.sub" data-editpath="bento.sub.text" style="font-size:${b.sub.style.size}px;color:${themeColor(b.sub.style.color)}">${t(b.sub.text)}<span class="edit-pencil">✎</span></p>`:''}
     </div>
     <div class="bento">${cards}${addTile}</div>
   </div>`;
@@ -674,8 +705,8 @@ function renderProcess(){
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('process')">⚙</div>`:''}
     <div class="process">
       <div class="section-head" style="padding-bottom:0">
-        ${!p.heading.hidden?`<h2 class="editable" data-kind="text" data-path="process.heading" data-editpath="process.heading.text" style="font-size:${p.heading.style.size}px;font-weight:${p.heading.style.weight};color:${p.heading.style.color}">${t(p.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
-        ${!p.sub.hidden?`<p class="editable" data-kind="text" data-path="process.sub" data-editpath="process.sub.text" style="font-size:${p.sub.style.size}px;color:${p.sub.style.color}">${t(p.sub.text)}<span class="edit-pencil">✎</span></p>`:''}
+        ${!p.heading.hidden?`<h2 class="editable" data-kind="text" data-path="process.heading" data-editpath="process.heading.text" style="font-size:${p.heading.style.size}px;font-weight:${p.heading.style.weight};color:${themeColor(p.heading.style.color)}">${t(p.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
+        ${!p.sub.hidden?`<p class="editable" data-kind="text" data-path="process.sub" data-editpath="process.sub.text" style="font-size:${p.sub.style.size}px;color:${themeColor(p.sub.style.color)}">${t(p.sub.text)}<span class="edit-pencil">✎</span></p>`:''}
       </div>
       <div class="process-grid" style="--stepcols:${Math.max(colCount,1)};">${steps}${addTile}</div>
     </div>
@@ -713,7 +744,7 @@ function renderPricing(){
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('pricing')">⚙</div>`:''}
     <div class="pricing">
       <div class="section-head">
-        ${!pr.heading.hidden?`<h2 class="editable" data-kind="text" data-path="pricing.heading" data-editpath="pricing.heading.text" style="font-size:${pr.heading.style.size}px;font-weight:${pr.heading.style.weight};color:${pr.heading.style.color}">${t(pr.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
+        ${!pr.heading.hidden?`<h2 class="editable" data-kind="text" data-path="pricing.heading" data-editpath="pricing.heading.text" style="font-size:${pr.heading.style.size}px;font-weight:${pr.heading.style.weight};color:${themeColor(pr.heading.style.color)}">${t(pr.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
       </div>
       <div class="plans" style="--plancols:${Math.max(colCount,1)};">${plans}${addTile}</div>
     </div>
@@ -761,7 +792,7 @@ function renderShowcase(){
   return `<div class="section-shell" id="section-showcase" style="${marginStyle(w.margin)}">
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('showcase')">⚙</div>`:''}
     <div class="showcase-head">
-      ${!w.heading.hidden?`<h2 class="editable" data-kind="text" data-path="showcase.heading" data-editpath="showcase.heading.text" style="font-size:${w.heading.style.size}px;font-weight:${w.heading.style.weight};color:${w.heading.style.color}">${t(w.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
+      ${!w.heading.hidden?`<h2 class="editable" data-kind="text" data-path="showcase.heading" data-editpath="showcase.heading.text" style="font-size:${w.heading.style.size}px;font-weight:${w.heading.style.weight};color:${themeColor(w.heading.style.color)}">${t(w.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
     </div>
     <div class="showcase-wrap">
       <div class="showcase-edge left"><button onclick="nudgeShowcase(-1)" aria-label="Scroll left">‹</button></div>
@@ -889,7 +920,7 @@ function renderReviews(){
   return `<div class="section-shell" id="section-reviews" style="${marginStyle(rv.margin)}">
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('reviews')">⚙</div>`:''}
     <div class="section-head">
-      ${!rv.heading.hidden?`<h2 class="editable" data-kind="text" data-path="reviews.heading" data-editpath="reviews.heading.text" style="font-size:${rv.heading.style.size}px;font-weight:${rv.heading.style.weight};color:${rv.heading.style.color}">${t(rv.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
+      ${!rv.heading.hidden?`<h2 class="editable" data-kind="text" data-path="reviews.heading" data-editpath="reviews.heading.text" style="font-size:${rv.heading.style.size}px;font-weight:${rv.heading.style.weight};color:${themeColor(rv.heading.style.color)}">${t(rv.heading.text)}<span class="edit-pencil">✎</span></h2>`:''}
     </div>
     <div class="reviews-grid">${cards}${addTile}</div>
   </div>`;
@@ -934,7 +965,7 @@ function renderFooter(){
   return `<div class="section-shell" id="section-footer" style="${marginStyle(f.margin)}">
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('footer')">⚙</div>`:''}
     <footer>
-      ${!f.copy.hidden?`<span class="editable" data-kind="text" data-path="footer.copy" data-editpath="footer.copy.text" style="font-size:${f.copy.style.size}px;color:${f.copy.style.color}">${t(f.copy.text)}<span class="edit-pencil">✎</span></span>`:''}
+      ${!f.copy.hidden?`<span class="editable" data-kind="text" data-path="footer.copy" data-editpath="footer.copy.text" style="font-size:${f.copy.style.size}px;color:${themeColor(f.copy.style.color)}">${t(f.copy.text)}<span class="edit-pencil">✎</span></span>`:''}
     </footer>
   </div>`;
 }
