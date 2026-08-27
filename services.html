@@ -45,9 +45,9 @@
     { icon:'cart', title:'Payments & bookings', desc:'Stripe checkout, booking calendars, and order management, wired end to end.' },
     { icon:'database', title:'Ongoing care', desc:'A monthly retainer for updates, small changes, and keeping things running.' },
   ];
-  document.getElementById('serviceGrid').innerHTML = items.map(it => `
+  document.getElementById('serviceGrid').innerHTML = items.map((it, idx) => `
     <div class="info-card">
-      <div class="icon-badge">${ICONS[it.icon]}</div>
+      <div class="icon-badge tint-${idx % 6}">${ICONS[it.icon]}</div>
       <h3>${it.title}</h3>
       <p>${it.desc}</p>
     </div>`).join('');
