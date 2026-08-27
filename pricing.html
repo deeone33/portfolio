@@ -6,35 +6,34 @@
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
+
+<div id="cms-adminbar">
+  <div class="left">
+    <span class="dot"></span>
+    <label><input type="checkbox" id="editModeToggle" checked onchange="toggleEditMode(this.checked)"> Edit mode</label>
+  </div>
+  <div class="left">
+    <button class="muted-btn" onclick="openHiddenDrawer()">Hidden elements (<span id="hiddenCount">0</span>)</button>
+    <button class="muted-btn" onclick="cmsUndo()">Undo</button>
+    <button class="go" id="saveBtn" onclick="openSavePanel()">Save changes</button>
+    <button class="muted-btn" onclick="exitAdmin()">Exit admin</button>
+  </div>
+</div>
+<div class="cms-hidden-drawer" id="hiddenDrawer">
+  <h4>Hidden elements — restore anytime</h4>
+  <div id="hiddenList"></div>
+</div>
+
 <div id="site-header"></div>
 
 <div class="wrap">
-  <section class="page-hero">
-    <div class="eyebrow">Fixed-price web studio</div>
-    <h1>Pick a package, or ask for a custom quote.</h1>
-    <p>Every price below is fixed and final — what you see is what you pay, no surprises after the brief.</p>
+  <section class="page-hero cms-editable" id="heroBlock">
+    <div class="eyebrow" data-editpath="hero.eyebrow.text">Loading…<span class="edit-pencil cms-edit-pencil" onclick="openHeroPanel()">✎</span></div>
+    <h1 data-editpath="hero.heading.text">Loading…</h1>
+    <p data-editpath="hero.sub.text">Loading…</p>
   </section>
 
-  <div class="plans">
-    <div class="plan">
-      <div class="t">Starter</div>
-      <h3>€450</h3>
-      <ul><li>Single page</li><li>3 day delivery</li><li>1 revision round</li></ul>
-      <button class="plan-cta" data-plan="starter">Choose Starter</button>
-    </div>
-    <div class="plan feat">
-      <div class="t">Standard</div>
-      <h3>€1,200</h3>
-      <ul><li>Up to 8 pages</li><li>CMS-editable content</li><li>3 revision rounds</li></ul>
-      <button class="plan-cta" data-plan="standard">Choose Standard</button>
-    </div>
-    <div class="plan">
-      <div class="t">Full Build</div>
-      <h3>€2,900+</h3>
-      <ul><li>Accounts & payments</li><li>Database backend</li><li>Priority support</li></ul>
-      <button class="plan-cta" data-plan="fullbuild">Choose Full Build</button>
-    </div>
-  </div>
+  <div class="plans" id="plansGrid"></div>
 
   <p style="text-align:center; margin:30px 0 60px; color:var(--mute); font-size:14px;">
     Need something that doesn't fit these boxes? <a href="quote.html" style="color:var(--coral); font-weight:600;">Ask for a custom quote →</a>
@@ -42,6 +41,19 @@
 </div>
 
 <div id="site-footer"></div>
+
+<div class="cms-panel-backdrop" id="panelBackdrop" onclick="closeCmsPanel()"></div>
+<div class="cms-panel" id="cmsPanel"></div>
+
+<div class="modal-backdrop" id="saveModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('saveModal')">✕</button>
+    <h3 style="font-size:19px;font-weight:800;margin-bottom:6px;">Save changes</h3>
+    <p style="background:#E6F4EC; color:#1E6B3E; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;">Saving writes this content to Supabase — every visitor sees it immediately.</p>
+    <button class="btn-primary" style="width:100%;" onclick="confirmSave()">Save — goes live for everyone</button>
+    <div id="saveError" class="form-error" style="display:none;"></div>
+  </div>
+</div>
 
 <!-- Simple project-notes modal shown before handing off to checkout -->
 <div class="modal-backdrop" id="notesModal">
@@ -55,30 +67,272 @@
   </div>
 </div>
 
-<script type="module">
-  import { renderHeader, renderFooter } from './assets/site-chrome.js';
-  import { supabase } from './shared/supabaseClient.js';
-  import { startCheckout } from './shared/orders.js';
+<script>
+let supabase, checkIsAdmin, cms, orders;
+let currentUser = null;
+let isAdmin = false;
+let editModeOn = true;
+let hasUnsavedChanges = false;
+let history = [];
+let currentEditId = null;
+let selectedPlan = null;
 
-  renderHeader('pricing.html');
-  renderFooter();
+// NOTE: `planKey` on each plan below MUST stay one of 'starter' / 'standard' /
+// 'fullbuild' — those are what shared/orders.js's PLANS map uses to decide
+// what Stripe actually charges. That's why price editing isn't offered on
+// this page: if the displayed price could drift from the real charged price,
+// customers would see one number and get billed another. Renaming, rewriting
+// features, changing which plan is "featured," and reordering are all safe —
+// none of that affects what Stripe charges.
+const DEFAULT_DATA = {
+  lang: 'en',
+  hero: {
+    margin: {mt:0, mb:0},
+    eyebrow: { text:{en:'Fixed-price web studio',et:'Fikseeritud hinnaga veebistuudio',ru:'Веб-студия с фиксированной ценой',sv:'Webbstudio med fast pris'}, hidden:false },
+    heading: { text:{en:'Pick a package, or ask for a custom quote.',et:'Vali pakett või küsi hinnapakkumist.',ru:'Выберите пакет или запросите цену.',sv:'Välj ett paket eller be om offert.'}, hidden:false },
+    sub: { text:{en:"Every price below is fixed and final — what you see is what you pay, no surprises after the brief.",et:'Iga hind on fikseeritud.',ru:'Каждая цена фиксирована.',sv:'Varje pris är fast.'}, hidden:false }
+  },
+  plans: [
+    { id:'pl1', planKey:'starter', order:0, featured:false, t:{en:'Starter',et:'Alustav',ru:'Стартовый',sv:'Start'}, price:'€450', ctaText:{en:'Choose Starter',et:'Vali Alustav',ru:'Выбрать Стартовый',sv:'Välj Start'}, features:[{en:'Single page',et:'Üks leht',ru:'Одна страница',sv:'En sida'},{en:'3 day delivery',et:'3 päeva',ru:'3 дня',sv:'3 dagar'},{en:'1 revision round',et:'1 parandusring',ru:'1 правка',sv:'1 revidering'}] },
+    { id:'pl2', planKey:'standard', order:1, featured:true, t:{en:'Standard',et:'Standard',ru:'Стандарт',sv:'Standard'}, price:'€1,200', ctaText:{en:'Choose Standard',et:'Vali Standard',ru:'Выбрать Стандарт',sv:'Välj Standard'}, features:[{en:'Up to 8 pages',et:'Kuni 8 lehte',ru:'До 8 страниц',sv:'Upp till 8 sidor'},{en:'CMS-editable content',et:'CMS-iga muudetav',ru:'Редактируемый контент',sv:'CMS-redigerbart'},{en:'3 revision rounds',et:'3 parandusringi',ru:'3 правки',sv:'3 revideringar'}] },
+    { id:'pl3', planKey:'fullbuild', order:2, featured:false, t:{en:'Full Build',et:'Täislahendus',ru:'Полный пакет',sv:'Fullständig'}, price:'€2,900+', ctaText:{en:'Choose Full Build',et:'Vali Täislahendus',ru:'Выбрать Полный',sv:'Välj Fullständig'}, features:[{en:'Accounts & payments',et:'Kontod ja maksed',ru:'Аккаунты и платежи',sv:'Konton och betalning'},{en:'Database backend',et:'Andmebaas',ru:'База данных',sv:'Databas'},{en:'Priority support',et:'Prioriteetne tugi',ru:'Приоритетная поддержка',sv:'Prioriterad support'}] }
+  ]
+};
+let siteData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+let lastSavedSnapshot = null;
 
-  let selectedPlan = null;
+function canEdit(){ return isAdmin && editModeOn; }
+function t(field){ if (!field) return ''; return field[siteData.lang] || field.en || ''; }
+
+function render(){
+  document.getElementById('heroBlock').style.marginTop = siteData.hero.margin.mt + 'px';
+  document.getElementById('heroBlock').style.marginBottom = siteData.hero.margin.mb + 'px';
+  document.querySelector('#heroBlock [data-editpath="hero.eyebrow.text"]').textContent = t(siteData.hero.eyebrow.text);
+  document.querySelector('#heroBlock h1').textContent = t(siteData.hero.heading.text);
+  document.querySelector('#heroBlock p').textContent = t(siteData.hero.sub.text);
+  const eb = document.querySelector('#heroBlock .eyebrow');
+  if (!eb.querySelector('.edit-pencil')) eb.insertAdjacentHTML('beforeend', '<span class="edit-pencil cms-edit-pencil" onclick="openHeroPanel()">✎</span>');
+  let gear = document.getElementById('heroGear');
+  if (canEdit() && !gear) {
+    document.getElementById('heroBlock').insertAdjacentHTML('afterbegin', '<div class="cms-section-gear" id="heroGear" onclick="openHeroSpacingPanel()" style="display:flex;">⚙</div>');
+  } else if (!canEdit() && gear) {
+    gear.remove();
+  }
+
+  const visible = [...siteData.plans].sort((a,b)=>a.order-b.order);
+  document.getElementById('plansGrid').innerHTML = visible.map((p,idx,arr) => `
+    <div class="plan cms-box-wrap cms-editable ${p.featured?'feat':''}" data-id="${p.id}">
+      ${canEdit()?`<div class="cms-reorder">
+        <button onclick="movePlan('${p.id}',-1)" ${idx===0?'disabled':''}>↑</button>
+        <button onclick="movePlan('${p.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
+      </div>`:''}
+      <div class="t">${t(p.t)}</div>
+      <h3>${p.price}</h3>
+      <ul>${p.features.map(f=>`<li>${t(f)}</li>`).join('')}</ul>
+      <button class="plan-cta" data-plan="${p.planKey}">${t(p.ctaText)}</button>
+      <span class="edit-pencil cms-edit-pencil" onclick="openPlanPanel('${p.id}')">✎</span>
+    </div>`).join('');
 
   document.querySelectorAll('.plan-cta').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      selectedPlan = btn.dataset.plan;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        window.location.href = `login.html?returnTo=${encodeURIComponent('pricing.html')}&plan=${selectedPlan}`;
-        return;
-      }
-      document.getElementById('notesModal').classList.add('open');
+    btn.addEventListener('click', () => {
+      if (canEdit()) return; // clicking to edit, not to buy, while in edit mode
+      startPlanCheckout(btn.dataset.plan);
     });
   });
 
-  function closeNotesModal(){ document.getElementById('notesModal').classList.remove('open'); }
-  window.closeNotesModal = closeNotesModal;
+  document.body.classList.toggle('cms-edit', canEdit());
+  updateSaveButtonState();
+  const hc = document.getElementById('hiddenCount');
+  if (hc) hc.textContent = '0';
+}
+
+function updateSaveButtonState(){
+  const btn = document.getElementById('saveBtn');
+  if (!btn) return;
+  btn.textContent = hasUnsavedChanges ? 'Save changes •' : 'Save changes';
+  btn.style.opacity = hasUnsavedChanges ? '1' : '.6';
+}
+function markChanged(){ hasUnsavedChanges = true; updateSaveButtonState(); }
+function pushHistory(){ history.push(JSON.stringify(siteData)); if (history.length>25) history.shift(); }
+function cmsUndo(){
+  if (!history.length) { alert('Nothing to undo yet.'); return; }
+  siteData = JSON.parse(history.pop());
+  markChanged(); render();
+}
+
+function openCmsPanel(html){
+  document.getElementById('cmsPanel').innerHTML = html;
+  document.getElementById('cmsPanel').classList.add('open');
+  document.getElementById('panelBackdrop').classList.add('open');
+}
+function closeCmsPanel(){
+  document.getElementById('cmsPanel').classList.remove('open');
+  document.getElementById('panelBackdrop').classList.remove('open');
+}
+
+function openHeroPanel(){
+  const h = siteData.hero;
+  openCmsPanel(`
+    <button class="close-btn" onclick="closeCmsPanel()">✕</button>
+    <h4>Edit intro</h4>
+    <label>Eyebrow</label>
+    <input type="text" id="f_eb" value="${h.eyebrow.text[siteData.lang]}">
+    <label>Heading</label>
+    <input type="text" id="f_head" value="${h.heading.text[siteData.lang]}">
+    <label>Subtext</label>
+    <textarea id="f_sub">${h.sub.text[siteData.lang]}</textarea>
+    <button class="go-btn" onclick="saveHeroPanel()">Apply</button>
+  `);
+}
+function saveHeroPanel(){
+  pushHistory();
+  siteData.hero.eyebrow.text[siteData.lang] = document.getElementById('f_eb').value;
+  siteData.hero.heading.text[siteData.lang] = document.getElementById('f_head').value;
+  siteData.hero.sub.text[siteData.lang] = document.getElementById('f_sub').value;
+  markChanged(); closeCmsPanel(); render();
+}
+
+function openHeroSpacingPanel(){
+  openCmsPanel(`
+    <button class="close-btn" onclick="closeCmsPanel()">✕</button>
+    <h4>Intro spacing</h4>
+    ${cms.spacingPanelHtml(siteData.hero.margin, 'heroBlock', 'applyHeroSpacing')}
+  `);
+}
+function applyHeroSpacing(){
+  pushHistory();
+  siteData.hero.margin.mt = parseInt(document.getElementById('f_mt').value);
+  siteData.hero.margin.mb = parseInt(document.getElementById('f_mb').value);
+  markChanged(); closeCmsPanel(); render();
+}
+function openHiddenDrawer(){
+  document.getElementById('hiddenList').innerHTML = '<p style="color:#666;font-size:13px;padding:10px 0;">Packages are not hideable here on purpose — removing a plan could break checkout. Edit or reorder instead.</p>';
+  document.getElementById('hiddenDrawer').classList.toggle('open');
+}
+
+function openPlanPanel(id){
+  currentEditId = id;
+  const p = siteData.plans.find(x=>x.id===id);
+  const featureRows = p.features.map((f,i)=>`
+    <div style="display:flex; gap:6px; margin-bottom:6px; align-items:center;">
+      <input type="text" class="feat-input" data-idx="${i}" value="${(f[siteData.lang]||'').replace(/"/g,'&quot;')}" style="flex:1;">
+      <button type="button" onclick="removeFeatureLine(${i})" style="flex:0 0 30px; border:1px solid var(--hair); background:#fff; border-radius:6px; cursor:pointer;">✕</button>
+    </div>`).join('');
+  openCmsPanel(`
+    <button class="close-btn" onclick="closeCmsPanel()">✕</button>
+    <h4>Edit plan</h4>
+    <p class="sub" style="background:#FBEBD6; color:#8A5A00; padding:8px 10px; border-radius:6px;">Price isn't editable here — it's kept in sync with what Stripe actually charges. Ask to change it in code if needed.</p>
+    <label>Plan name</label>
+    <input type="text" id="f_t" value="${p.t[siteData.lang]}">
+    <label>Button text</label>
+    <input type="text" id="f_cta" value="${p.ctaText[siteData.lang]}">
+    <label>Featured (highlighted)</label>
+    <div style="display:flex; gap:6px; margin-top:4px;"><button type="button" id="f_feat" class="${p.featured?'go-btn':''}" style="${p.featured?'':'background:#fff;color:var(--paper);border:1px solid var(--hair);'} flex:1; padding:8px; border-radius:6px; cursor:pointer;" onclick="this.classList.toggle('go-btn'); this.style.background=this.classList.contains('go-btn')?'':'#fff';">Featured</button></div>
+    <label>Feature list</label>
+    <div id="featureRows">${featureRows}</div>
+    <button type="button" onclick="addFeatureLine()" style="width:100%;padding:9px;border:1px dashed var(--hair);border-radius:6px;background:none;cursor:pointer;font-size:12.5px;color:var(--mute);margin-bottom:6px;">+ Add feature line</button>
+    <button class="go-btn" onclick="savePlanPanel()">Apply</button>
+  `);
+}
+function addFeatureLine(){
+  const p = siteData.plans.find(x=>x.id===currentEditId);
+  p.features.push({en:'New feature',et:'',ru:'',sv:''});
+  openPlanPanel(currentEditId);
+}
+function removeFeatureLine(idx){
+  const p = siteData.plans.find(x=>x.id===currentEditId);
+  p.features.splice(idx,1);
+  openPlanPanel(currentEditId);
+}
+function savePlanPanel(){
+  pushHistory();
+  const p = siteData.plans.find(x=>x.id===currentEditId);
+  p.t[siteData.lang] = document.getElementById('f_t').value;
+  p.ctaText[siteData.lang] = document.getElementById('f_cta').value;
+  p.featured = document.getElementById('f_feat').classList.contains('go-btn');
+  document.querySelectorAll('.feat-input').forEach(inp => {
+    const idx = parseInt(inp.dataset.idx);
+    if (p.features[idx]) p.features[idx][siteData.lang] = inp.value;
+  });
+  markChanged(); closeCmsPanel(); render();
+}
+function movePlan(id, dir){
+  pushHistory();
+  const sorted = [...siteData.plans].sort((a,b)=>a.order-b.order);
+  const idx = sorted.findIndex(x=>x.id===id);
+  const swapIdx = idx+dir;
+  if (swapIdx<0 || swapIdx>=sorted.length) { history.pop(); return; }
+  const tmp = sorted[idx].order; sorted[idx].order = sorted[swapIdx].order; sorted[swapIdx].order = tmp;
+  markChanged(); render();
+}
+
+function toggleEditMode(checked){ editModeOn = checked; render(); }
+async function exitAdmin(){
+  await supabase.auth.signOut();
+  window.location.href = 'index.html';
+}
+
+function openSavePanel(){ openModal('saveModal'); }
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+async function confirmSave(){
+  const errEl = document.getElementById('saveError');
+  errEl.style.display = 'none';
+  try {
+    await cms.savePageContent('pricing', siteData);
+    lastSavedSnapshot = JSON.parse(JSON.stringify(siteData));
+    hasUnsavedChanges = false;
+    updateSaveButtonState();
+    closeModal('saveModal');
+    alert('Saved — live for every visitor now.');
+  } catch (err) {
+    errEl.textContent = 'Save failed: ' + err.message;
+    errEl.style.display = 'block';
+  }
+}
+
+/* ---------- checkout flow (unchanged behavior from before) ---------- */
+async function startPlanCheckout(planKey){
+  selectedPlan = planKey;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    window.location.href = `login.html?returnTo=${encodeURIComponent('pricing.html')}&plan=${selectedPlan}`;
+    return;
+  }
+  document.getElementById('notesModal').classList.add('open');
+}
+function closeNotesModal(){ document.getElementById('notesModal').classList.remove('open'); }
+
+(async function init(){
+  const clientMod = await import('./shared/supabaseClient.js');
+  const authMod = await import('./shared/auth.js');
+  cms = await import('./shared/cms-core.js');
+  orders = await import('./shared/orders.js');
+  supabase = clientMod.supabase;
+  checkIsAdmin = authMod.isAdmin;
+
+  try {
+    const published = await cms.loadPageContent('pricing');
+    if (published) { siteData = published; lastSavedSnapshot = JSON.parse(JSON.stringify(published)); }
+    else lastSavedSnapshot = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  } catch (err) {
+    console.error(err);
+    lastSavedSnapshot = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  currentUser = user || null;
+  if (currentUser) {
+    isAdmin = await checkIsAdmin(currentUser.id);
+    if (isAdmin) document.getElementById('cms-adminbar').classList.add('on');
+  }
+
+  cms.bindInlineEditing({
+    canEdit,
+    getRoot: () => siteData,
+    getLang: () => siteData.lang,
+    onChanged: (changed) => { if (changed) markChanged(); render(); }
+  });
 
   document.getElementById('proceedBtn').addEventListener('click', async () => {
     const errEl = document.getElementById('checkoutError');
@@ -88,7 +342,7 @@
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const notes = document.getElementById('orderNotes').value;
-      await startCheckout(user.id, selectedPlan, notes);
+      await orders.startCheckout(user.id, selectedPlan, notes);
     } catch (err) {
       errEl.textContent = err.message || 'Something went wrong starting checkout.';
       errEl.style.display = 'block';
@@ -96,18 +350,25 @@
     }
   });
 
-  // If arriving back from login.html (or from start-project.html) with a
-  // plan already chosen, resume the flow — but still gate on login first.
+  const { renderHeader, renderFooter } = await import('./assets/site-chrome.js');
+  renderHeader('pricing.html');
+  renderFooter();
+
+  render();
+
+  // Resume checkout if arriving back from login.html with a plan pre-chosen
   const params = new URLSearchParams(window.location.search);
   if (params.get('plan')) {
-    selectedPlan = params.get('plan');
+    const plan = params.get('plan');
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      window.location.href = `login.html?returnTo=${encodeURIComponent('pricing.html')}&plan=${selectedPlan}`;
+      window.location.href = `login.html?returnTo=${encodeURIComponent('pricing.html')}&plan=${plan}`;
     } else {
+      selectedPlan = plan;
       document.getElementById('notesModal').classList.add('open');
     }
   }
+})();
 </script>
 </body>
 </html>

@@ -517,6 +517,16 @@ function renderHeader(){
   const navHtml = h.navLinks.filter(n=>!n.hidden).map(n =>
     `<a class="link editable" data-kind="navlink" data-id="${n.id}" data-editpath="header.navLinks[${n.id}].text" href="${n.link}">${t(n.text)}<span class="edit-pencil">✎</span></a>`
   ).join('');
+  const adminLink = isAdmin ? `<a class="link" href="admin-orders.html" style="font-weight:700;">Admin</a>` : '';
+  const accountMenu = currentUser ? `
+    <div class="lang" id="accountSwitch">
+      <button class="account-btn" onclick="document.getElementById('accountSwitch').classList.toggle('open')" aria-label="Account">${personIcon()}</button>
+      <div class="lang-menu" style="right:0; min-width:160px;">
+        <a href="account.html" class="lang-option" style="text-decoration:none;">My account</a>
+        <a href="account.html" class="lang-option" style="text-decoration:none;">Orders</a>
+        <div class="lang-option" onclick="accountSignOut()" style="color:#A1352A;">Log out</div>
+      </div>
+    </div>` : `<button class="account-btn" onclick="window.location.href='login.html?returnTo=${encodeURIComponent('index.html')}'" aria-label="Account">${personIcon()}</button>`;
   return `
   <div class="section-shell" id="section-header" style="${marginStyle(h.margin)}">
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('header')">⚙</div>`:''}
@@ -526,6 +536,7 @@ function renderHeader(){
       </div>
       <nav>
         ${navHtml}
+        ${adminLink}
         <div class="lang" id="langSwitch">
           <button class="lang-btn" onclick="document.getElementById('langSwitch').classList.toggle('open')">
             <span class="lang-flag">${flagSvg(siteData.lang)}</span><span class="lang-caret">▾</span>
@@ -534,11 +545,15 @@ function renderHeader(){
             ${['et','en','ru','sv'].map(l=>`<div class="lang-option ${siteData.lang===l?'active':''}" onclick="setLang('${l}')"><span class="lang-flag">${flagSvg(l)}</span>${langName(l)}</div>`).join('')}
           </div>
         </div>
-        <button class="account-btn" onclick="window.location.href='${currentUser ? 'account.html' : 'login.html?returnTo=' + encodeURIComponent('index.html')}'" aria-label="Account">${personIcon()}</button>
+        ${accountMenu}
         <a class="cta editable" data-kind="headerCta" href="${h.ctaLink}">${t(h.ctaText)}<span class="edit-pencil">✎</span></a>
       </nav>
     </header>
   </div>`;
+}
+async function accountSignOut(){
+  await supabase.auth.signOut();
+  window.location.href = 'index.html';
 }
 
 function renderHero(){
@@ -593,7 +608,7 @@ function renderBento(){
       <div><h3 data-editpath="bento.cards[${c.id}].title">${t(c.title)}</h3><p data-editpath="bento.cards[${c.id}].desc">${t(c.desc)}</p></div>
       <span class="edit-pencil">✎</span>
     </div>`).join('');
-  const addTile = isAdmin ? `<div class="bcard add-tile" style="--span:2;" onclick="addBentoCard()"><span>+</span><div>Add card</div></div>` : '';
+  const addTile = canEdit() ? `<div class="bcard add-tile" style="--span:2;" onclick="addBentoCard()"><span>+</span><div>Add card</div></div>` : '';
   const notHidden = (o)=>!o.hidden;
   return `<div class="section-shell" id="section-bento" style="${marginStyle(b.margin)}">
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('bento')">⚙</div>`:''}
@@ -632,7 +647,7 @@ function renderProcess(){
       <h4 data-editpath="process.steps[${s.id}].title">${t(s.title)}</h4><p data-editpath="process.steps[${s.id}].desc">${t(s.desc)}</p>
       <span class="edit-pencil">✎</span>
     </div>`).join('');
-  const addTile = isAdmin ? `<div class="pstep add-tile" onclick="addProcessStep()"><span>+</span><div>Add step</div></div>` : '';
+  const addTile = canEdit() ? `<div class="pstep add-tile" onclick="addProcessStep()"><span>+</span><div>Add step</div></div>` : '';
   const colCount = visibleSteps.length + (canEdit()?1:0);
   return `<div class="section-shell" id="section-process" style="${marginStyle(p.margin)}">
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('process')">⚙</div>`:''}
@@ -671,7 +686,7 @@ function renderPricing(){
       <a class="plan-cta ${p.featured?'feat':''}" data-editpath="pricing.plans[${p.id}].ctaText">${t(p.ctaText)}</a>
       <span class="edit-pencil">✎</span>
     </div>`).join('');
-  const addTile = isAdmin ? `<div class="plan add-tile" onclick="addPlan()"><span>+</span><div>Add package</div></div>` : '';
+  const addTile = canEdit() ? `<div class="plan add-tile" onclick="addPlan()"><span>+</span><div>Add package</div></div>` : '';
   const colCount = visiblePlans.length + (canEdit()?1:0);
   return `<div class="section-shell" id="section-pricing" style="${marginStyle(pr.margin)}">
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('pricing')">⚙</div>`:''}
@@ -700,8 +715,8 @@ function renderShowcase(){
   const visible = [...w.items].filter(i=>!i.hidden).sort((a,b)=>a.order-b.order);
   const palette = ['p0','p1','p2','p3'];
   const cardsOnce = visible.map((it,idx,arr) => {
-    const href = isAdmin ? 'javascript:void(0)' : (it.link || '#');
-    const targetAttr = isAdmin ? '' : ' target="_blank" rel="noopener"';
+    const href = canEdit() ? 'javascript:void(0)' : (it.link || '#');
+    const targetAttr = canEdit() ? '' : ' target="_blank" rel="noopener"';
     return `
     <div class="wcard" data-kind="showcaseItem" data-id="${it.id}">
       ${canEdit()?`<div class="wcard-arrows">
@@ -717,11 +732,11 @@ function renderShowcase(){
       </a>
     </div>`;
   }).join('');
-  const addTile = isAdmin ? `<div class="wcard-add" onclick="addShowcaseItem()"><span>+</span><div>Add work</div></div>` : '';
+  const addTile = canEdit() ? `<div class="wcard-add" onclick="addShowcaseItem()"><span>+</span><div>Add work</div></div>` : '';
   // Public view duplicates the set once so the loop wraps seamlessly — the
   // seam is invisible because both halves are identical. Admin view stays
   // single-copy (plus the add tile) so editing controls aren't doubled up.
-  const trackContent = isAdmin ? (cardsOnce + addTile) : (cardsOnce + cardsOnce);
+  const trackContent = canEdit() ? (cardsOnce + addTile) : (cardsOnce + cardsOnce);
   return `<div class="section-shell" id="section-showcase" style="${marginStyle(w.margin)}">
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('showcase')">⚙</div>`:''}
     <div class="showcase-head">
@@ -849,7 +864,7 @@ function renderReviews(){
       </div>
       <span class="edit-pencil">✎</span>
     </div>`).join('');
-  const addTile = isAdmin ? `<div class="rcard add-tile" onclick="addReview()"><span>+</span><div>Add review</div></div>` : '';
+  const addTile = canEdit() ? `<div class="rcard add-tile" onclick="addReview()"><span>+</span><div>Add review</div></div>` : '';
   return `<div class="section-shell" id="section-reviews" style="${marginStyle(rv.margin)}">
     ${canEdit()?`<div class="section-gear" onclick="openSectionPanel('reviews')">⚙</div>`:''}
     <div class="section-head">

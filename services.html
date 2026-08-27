@@ -6,13 +6,31 @@
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
+
+<div id="cms-adminbar">
+  <div class="left">
+    <span class="dot"></span>
+    <label><input type="checkbox" id="editModeToggle" checked onchange="toggleEditMode(this.checked)"> Edit mode</label>
+  </div>
+  <div class="left">
+    <button class="muted-btn" onclick="openHiddenDrawer()">Hidden elements (<span id="hiddenCount">0</span>)</button>
+    <button class="muted-btn" onclick="cmsUndo()">Undo</button>
+    <button class="go" id="saveBtn" onclick="openSavePanel()">Save changes</button>
+    <button class="muted-btn" onclick="exitAdmin()">Exit admin</button>
+  </div>
+</div>
+<div class="cms-hidden-drawer" id="hiddenDrawer">
+  <h4>Hidden elements — restore anytime</h4>
+  <div id="hiddenList"></div>
+</div>
+
 <div id="site-header"></div>
 
 <div class="wrap">
-  <section class="page-hero">
-    <div class="eyebrow">What we do</div>
-    <h1>Everything a site needs, none of it bolted on later.</h1>
-    <p>Design, build, and content handled as one job — not three separate quotes from three separate people.</p>
+  <section class="page-hero cms-editable" id="heroBlock">
+    <div class="eyebrow" data-editpath="hero.eyebrow.text">Loading…<span class="edit-pencil cms-edit-pencil" onclick="openHeroPanel()">✎</span></div>
+    <h1 data-editpath="hero.heading.text">Loading…</h1>
+    <p data-editpath="hero.sub.text">Loading…</p>
   </section>
 
   <div class="card-grid" id="serviceGrid"></div>
@@ -24,33 +42,287 @@
 
 <div id="site-footer"></div>
 
-<script type="module">
-  import { renderHeader, renderFooter } from './assets/site-chrome.js';
+<div class="cms-panel-backdrop" id="panelBackdrop" onclick="closeCmsPanel()"></div>
+<div class="cms-panel" id="cmsPanel"></div>
+
+<div class="modal-backdrop" id="saveModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('saveModal')">✕</button>
+    <h3 style="font-size:19px;font-weight:800;margin-bottom:6px;">Save changes</h3>
+    <p style="background:#E6F4EC; color:#1E6B3E; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;">Saving writes this content to Supabase — every visitor sees it immediately.</p>
+    <button class="btn-primary" style="width:100%;" onclick="confirmSave()">Save — goes live for everyone</button>
+    <div id="saveError" class="form-error" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+let supabase, checkIsAdmin, cms;
+let currentUser = null;
+let isAdmin = false;
+let editModeOn = true;
+let hasUnsavedChanges = false;
+let history = [];
+let currentEditId = null;
+
+const DEFAULT_DATA = {
+  lang: 'en',
+  hero: {
+    margin: {mt:0, mb:0},
+    eyebrow: { text:{en:'What we do',et:'Mida me teeme',ru:'Чем мы занимаемся',sv:'Vad vi gör'}, hidden:false },
+    heading: { text:{en:'Everything a site needs, none of it bolted on later.',et:'Kõik, mida veebileht vajab.',ru:'Всё, что нужно сайту.',sv:'Allt en sajt behöver.'}, hidden:false },
+    sub: { text:{en:'Design, build, and content handled as one job — not three separate quotes from three separate people.',et:'Disain, arendus ja sisu — üks tellimus.',ru:'Дизайн, разработка и контент — одна задача.',sv:'Design, bygg och innehåll — ett jobb.'}, hidden:false }
+  },
+  cards: [
+    { id:'sv1', order:0, hidden:false, icon:'palette', tint:null, title:{en:'Design systems',et:'Disainisüsteemid',ru:'Дизайн-системы',sv:'Designsystem'}, desc:{en:'Custom type, color, and layout built from your brief — never a stock theme.',et:'Kirjatüüp, värv ja paigutus sinu briifi järgi.',ru:'Шрифт, цвет и макет по вашему брифу.',sv:'Typsnitt, färg och layout efter ditt brief.'} },
+    { id:'sv2', order:1, hidden:false, icon:'wrench', tint:null, title:{en:'Build & development',et:'Arendus',ru:'Разработка',sv:'Utveckling'}, desc:{en:'Fast, clean, maintainable code on modern static and database tooling.',et:'Kiire ja hooldatav kood.',ru:'Быстрый, чистый и поддерживаемый код.',sv:'Snabb, ren, underhållbar kod.'} },
+    { id:'sv3', order:2, hidden:false, icon:'globe', tint:null, title:{en:'Multilingual content',et:'Mitmekeelne sisu',ru:'Многоязычный контент',sv:'Flerspråkigt innehåll'}, desc:{en:'English, Russian, Estonian, and Swedish, written to sound like you, not a translator.',et:'Inglise, vene, eesti ja rootsi keeles.',ru:'На английском, русском, эстонском и шведском.',sv:'Engelska, ryska, estniska och svenska.'} },
+    { id:'sv4', order:3, hidden:false, icon:'lock', tint:null, title:{en:'Accounts & authentication',et:'Kontod ja autentimine',ru:'Аккаунты и аутентификация',sv:'Konton och autentisering'}, desc:{en:'Secure logins, member areas, and role-based access when your site needs it.',et:'Turvaline sisselogimine ja liikmealad.',ru:'Безопасный вход и разделы для участников.',sv:'Säker inloggning och medlemsytor.'} },
+    { id:'sv5', order:4, hidden:false, icon:'cart', tint:null, title:{en:'Payments & bookings',et:'Maksed ja broneeringud',ru:'Платежи и бронирования',sv:'Betalningar och bokningar'}, desc:{en:'Stripe checkout, booking calendars, and order management, wired end to end.',et:'Stripe maksed, broneerimiskalendrid.',ru:'Оплата через Stripe, календари бронирования.',sv:'Stripe-betalning, bokningskalendrar.'} },
+    { id:'sv6', order:5, hidden:false, icon:'database', tint:null, title:{en:'Ongoing care',et:'Pidev hooldus',ru:'Постоянная поддержка',sv:'Löpande underhåll'}, desc:{en:'A monthly retainer for updates, small changes, and keeping things running.',et:'Igakuine hooldusleping.',ru:'Ежемесячная поддержка и обновления.',sv:'Månatligt underhållsavtal.'} }
+  ]
+};
+let siteData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+let lastSavedSnapshot = null;
+
+function canEdit(){ return isAdmin && editModeOn; }
+function t(field){ if (!field) return ''; return field[siteData.lang] || field.en || ''; }
+
+function render(){
+  document.getElementById('heroBlock').style.marginTop = siteData.hero.margin.mt + 'px';
+  document.getElementById('heroBlock').style.marginBottom = siteData.hero.margin.mb + 'px';
+  document.querySelector('#heroBlock [data-editpath="hero.eyebrow.text"]').textContent = t(siteData.hero.eyebrow.text);
+  document.querySelector('#heroBlock h1').textContent = t(siteData.hero.heading.text);
+  document.querySelector('#heroBlock p').textContent = t(siteData.hero.sub.text);
+  const eb = document.querySelector('#heroBlock .eyebrow');
+  if (!eb.querySelector('.edit-pencil')) eb.insertAdjacentHTML('beforeend', '<span class="edit-pencil cms-edit-pencil" onclick="openHeroPanel()">✎</span>');
+  let gear = document.getElementById('heroGear');
+  if (canEdit() && !gear) {
+    document.getElementById('heroBlock').insertAdjacentHTML('afterbegin', '<div class="cms-section-gear" id="heroGear" onclick="openHeroSpacingPanel()" style="display:flex;">⚙</div>');
+  } else if (!canEdit() && gear) {
+    gear.remove();
+  }
+
+  const visible = [...siteData.cards].filter(c=>!c.hidden).sort((a,b)=>a.order-b.order);
+  const cardsHtml = visible.map((c,idx,arr) => `
+    <div class="info-card cms-box-wrap cms-editable" data-id="${c.id}">
+      ${canEdit()?`<div class="cms-reorder">
+        <button onclick="moveCard('${c.id}',-1)" ${idx===0?'disabled':''}>↑</button>
+        <button onclick="moveCard('${c.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
+      </div>`:''}
+      <div ${cms.iconBadgeAttrs(c, idx, 'icon-badge')}>${cms.iconSvg(c.icon)}</div>
+      <h3 data-editpath="cards[${c.id}].title">${t(c.title)}</h3>
+      <p data-editpath="cards[${c.id}].desc">${t(c.desc)}</p>
+      <span class="edit-pencil cms-edit-pencil" onclick="openCardPanel('${c.id}')">✎</span>
+    </div>`).join('');
+  const addTile = canEdit() ? `<div class="cms-add-tile" onclick="addCard()"><span>+</span><div>Add service</div></div>` : '';
+  document.getElementById('serviceGrid').innerHTML = cardsHtml + addTile;
+
+  document.body.classList.toggle('cms-edit', canEdit());
+  updateSaveButtonState();
+  updateHiddenCount();
+}
+function updateHiddenCount(){
+  const el = document.getElementById('hiddenCount');
+  if (!el) return;
+  el.textContent = cms.collectHidden([{ labelFn: c => t(c.title), items: siteData.cards }]).length;
+}
+
+function updateSaveButtonState(){
+  const btn = document.getElementById('saveBtn');
+  if (!btn) return;
+  btn.textContent = hasUnsavedChanges ? 'Save changes •' : 'Save changes';
+  btn.style.opacity = hasUnsavedChanges ? '1' : '.6';
+}
+function markChanged(){ hasUnsavedChanges = true; updateSaveButtonState(); }
+function pushHistory(){ history.push(JSON.stringify(siteData)); if (history.length>25) history.shift(); }
+function cmsUndo(){
+  if (!history.length) { alert('Nothing to undo yet.'); return; }
+  siteData = JSON.parse(history.pop());
+  markChanged(); render();
+}
+
+function openCmsPanel(html){
+  document.getElementById('cmsPanel').innerHTML = html;
+  document.getElementById('cmsPanel').classList.add('open');
+  document.getElementById('panelBackdrop').classList.add('open');
+}
+function closeCmsPanel(){
+  document.getElementById('cmsPanel').classList.remove('open');
+  document.getElementById('panelBackdrop').classList.remove('open');
+}
+
+function openHeroPanel(){
+  const h = siteData.hero;
+  openCmsPanel(`
+    <button class="close-btn" onclick="closeCmsPanel()">✕</button>
+    <h4>Edit intro</h4>
+    <div class="sub">These three fields sit above the service cards.</div>
+    <label>Eyebrow</label>
+    <input type="text" id="f_eb" value="${h.eyebrow.text[siteData.lang]}">
+    <label>Heading</label>
+    <input type="text" id="f_head" value="${h.heading.text[siteData.lang]}">
+    <label>Subtext</label>
+    <textarea id="f_sub">${h.sub.text[siteData.lang]}</textarea>
+    <button class="go-btn" onclick="saveHeroPanel()">Apply</button>
+  `);
+}
+function saveHeroPanel(){
+  pushHistory();
+  siteData.hero.eyebrow.text[siteData.lang] = document.getElementById('f_eb').value;
+  siteData.hero.heading.text[siteData.lang] = document.getElementById('f_head').value;
+  siteData.hero.sub.text[siteData.lang] = document.getElementById('f_sub').value;
+  markChanged(); closeCmsPanel(); render();
+}
+
+function openHeroSpacingPanel(){
+  openCmsPanel(`
+    <button class="close-btn" onclick="closeCmsPanel()">✕</button>
+    <h4>Intro spacing</h4>
+    ${cms.spacingPanelHtml(siteData.hero.margin, 'heroBlock', 'applyHeroSpacing')}
+  `);
+}
+function applyHeroSpacing(){
+  pushHistory();
+  siteData.hero.margin.mt = parseInt(document.getElementById('f_mt').value);
+  siteData.hero.margin.mb = parseInt(document.getElementById('f_mb').value);
+  markChanged(); closeCmsPanel(); render();
+}
+
+let _hiddenCache = [];
+function openHiddenDrawer(){
+  _hiddenCache = cms.collectHidden([{ labelFn: c => t(c.title), items: siteData.cards }]);
+  document.getElementById('hiddenList').innerHTML = cms.renderHiddenDrawerHtml(_hiddenCache);
+  window.__restoreHidden = (i) => {
+    pushHistory();
+    _hiddenCache[i].unhide();
+    markChanged(); render(); openHiddenDrawer();
+  };
+  document.getElementById('hiddenDrawer').classList.toggle('open');
+}
+
+function openCardPanel(id){
+  currentEditId = id;
+  const c = siteData.cards.find(x=>x.id===id);
+  openCmsPanel(`
+    <button class="close-btn" onclick="closeCmsPanel()">✕</button>
+    <h4>Edit service</h4>
+    <label>Icon</label>
+    ${cms.iconPickerHtml(c.icon, 'setCardIcon')}
+    <label>Icon color</label>
+    ${cms.tintPickerHtml(c, 'setCardTint')}
+    <label>Title</label>
+    <input type="text" id="f_title" value="${c.title[siteData.lang]}">
+    <label>Description</label>
+    <textarea id="f_desc">${c.desc[siteData.lang]}</textarea>
+    <button class="go-btn" onclick="saveCardPanel()">Apply</button>
+    <button class="danger-btn" onclick="removeCard('${id}')">Remove</button>
+  `);
+}
+function saveCardPanel(){
+  pushHistory();
+  const c = siteData.cards.find(x=>x.id===currentEditId);
+  c.title[siteData.lang] = document.getElementById('f_title').value;
+  c.desc[siteData.lang] = document.getElementById('f_desc').value;
+  markChanged(); closeCmsPanel(); render();
+}
+function setCardIcon(key){
+  pushHistory();
+  const c = siteData.cards.find(x=>x.id===currentEditId);
+  c.icon = key;
+  markChanged(); openCardPanel(currentEditId);
+}
+function setCardTint(tint){
+  pushHistory();
+  const c = siteData.cards.find(x=>x.id===currentEditId);
+  c.tint = tint;
+  markChanged(); openCardPanel(currentEditId); render();
+}
+function addCard(){
+  pushHistory();
+  const maxOrder = siteData.cards.reduce((m,c)=>Math.max(m,c.order),-1);
+  const id = 'sv'+Date.now();
+  siteData.cards.push({ id, order:maxOrder+1, hidden:false, icon:'layers', tint:null,
+    title:{en:'New service',et:'Uus teenus',ru:'Новая услуга',sv:'Ny tjänst'},
+    desc:{en:'Describe this service.',et:'Kirjelda seda.',ru:'Опишите услугу.',sv:'Beskriv tjänsten.'} });
+  markChanged(); render();
+}
+function removeCard(id){
+  pushHistory();
+  const c = siteData.cards.find(x=>x.id===id);
+  c.hidden = true;
+  markChanged(); closeCmsPanel(); render();
+}
+function moveCard(id, dir){
+  pushHistory();
+  const sorted = [...siteData.cards].sort((a,b)=>a.order-b.order);
+  const idx = sorted.findIndex(x=>x.id===id);
+  const swapIdx = idx+dir;
+  if (swapIdx<0 || swapIdx>=sorted.length) { history.pop(); return; }
+  const tmp = sorted[idx].order; sorted[idx].order = sorted[swapIdx].order; sorted[swapIdx].order = tmp;
+  markChanged(); render();
+}
+
+function toggleEditMode(checked){ editModeOn = checked; render(); }
+async function exitAdmin(){
+  await supabase.auth.signOut();
+  window.location.href = 'index.html';
+}
+
+function openSavePanel(){ openModal('saveModal'); }
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+async function confirmSave(){
+  const errEl = document.getElementById('saveError');
+  errEl.style.display = 'none';
+  try {
+    await cms.savePageContent('services', siteData);
+    lastSavedSnapshot = JSON.parse(JSON.stringify(siteData));
+    hasUnsavedChanges = false;
+    updateSaveButtonState();
+    closeModal('saveModal');
+    alert('Saved — live for every visitor now.');
+  } catch (err) {
+    errEl.textContent = 'Save failed: ' + err.message;
+    errEl.style.display = 'block';
+  }
+}
+
+(async function init(){
+  const clientMod = await import('./shared/supabaseClient.js');
+  const authMod = await import('./shared/auth.js');
+  cms = await import('./shared/cms-core.js');
+  supabase = clientMod.supabase;
+  checkIsAdmin = authMod.isAdmin;
+
+  try {
+    const published = await cms.loadPageContent('services');
+    if (published) { siteData = published; lastSavedSnapshot = JSON.parse(JSON.stringify(published)); }
+    else lastSavedSnapshot = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  } catch (err) {
+    console.error(err);
+    lastSavedSnapshot = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  currentUser = user || null;
+  if (currentUser) {
+    isAdmin = await checkIsAdmin(currentUser.id);
+    if (isAdmin) document.getElementById('cms-adminbar').classList.add('on');
+  }
+
+  cms.bindInlineEditing({
+    canEdit,
+    getRoot: () => siteData,
+    getLang: () => siteData.lang,
+    onChanged: (changed) => { if (changed) markChanged(); render(); }
+  });
+
+  const { renderHeader, renderFooter } = await import('./assets/site-chrome.js');
   renderHeader('services.html');
   renderFooter();
 
-  const ICONS = {
-    palette: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a10 10 0 1 0 0 20c1.5 0 2-1 2-2s-.5-1.5-1-2 .5-2 2-2h1a4 4 0 0 0 4-4 8 8 0 0 0-8-10z"/><circle cx="7.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="11" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="9" r="1.2" fill="currentColor" stroke="none"/></svg>',
-    wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4L21 6l-3-3-3.3 3.3z"/></svg>',
-    globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 4 6 4 9s-1.5 6.4-4 9c-2.5-2.6-4-6-4-9s1.5-6.4 4-9z"/></svg>',
-    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></svg>',
-    cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none"/><circle cx="17" cy="20" r="1.4" fill="currentColor" stroke="none"/><path d="M2 3h3l2.5 12h10L20 7H6"/></svg>',
-    database: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>',
-  };
-  const items = [
-    { icon:'palette', title:'Design systems', desc:'Custom type, color, and layout built from your brief — never a stock theme.' },
-    { icon:'wrench', title:'Build & development', desc:'Fast, clean, maintainable code on modern static and database tooling.' },
-    { icon:'globe', title:'Multilingual content', desc:'English, Russian, Estonian, and Swedish, written to sound like you, not a translator.' },
-    { icon:'lock', title:'Accounts & authentication', desc:'Secure logins, member areas, and role-based access when your site needs it.' },
-    { icon:'cart', title:'Payments & bookings', desc:'Stripe checkout, booking calendars, and order management, wired end to end.' },
-    { icon:'database', title:'Ongoing care', desc:'A monthly retainer for updates, small changes, and keeping things running.' },
-  ];
-  document.getElementById('serviceGrid').innerHTML = items.map((it, idx) => `
-    <div class="info-card">
-      <div class="icon-badge tint-${idx % 6}">${ICONS[it.icon]}</div>
-      <h3>${it.title}</h3>
-      <p>${it.desc}</p>
-    </div>`).join('');
+  render();
+})();
 </script>
 </body>
 </html>

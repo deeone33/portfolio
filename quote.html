@@ -6,13 +6,31 @@
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
+
+<div id="cms-adminbar">
+  <div class="left">
+    <span class="dot"></span>
+    <label><input type="checkbox" id="editModeToggle" checked onchange="toggleEditMode(this.checked)"> Edit mode</label>
+  </div>
+  <div class="left">
+    <button class="muted-btn" onclick="openHiddenDrawer()">Hidden elements (<span id="hiddenCount">0</span>)</button>
+    <button class="muted-btn" onclick="cmsUndo()">Undo</button>
+    <button class="go" id="saveBtn" onclick="openSavePanel()">Save changes</button>
+    <button class="muted-btn" onclick="exitAdmin()">Exit admin</button>
+  </div>
+</div>
+<div class="cms-hidden-drawer" id="hiddenDrawer">
+  <h4>Hidden elements — restore anytime</h4>
+  <div id="hiddenList"></div>
+</div>
+
 <div id="site-header"></div>
 
 <div class="wrap" style="padding:40px 0 80px;">
-  <section class="page-hero" style="text-align:center; padding-bottom:20px;">
-    <div class="eyebrow" style="justify-content:center; display:flex;">Custom quote</div>
-    <h1 style="margin:0 auto;">Doesn't fit the packages? Tell us what you need.</h1>
-    <p style="margin:16px auto 0;">A few details and we'll come back with a fixed price and timeline — usually within a couple of days.</p>
+  <section class="page-hero cms-editable" id="heroBlock" style="text-align:center; padding-bottom:20px;">
+    <div class="eyebrow" style="justify-content:center; display:flex;" data-editpath="hero.eyebrow.text">Loading…<span class="edit-pencil cms-edit-pencil" onclick="openHeroPanel()">✎</span></div>
+    <h1 style="margin:0 auto;" data-editpath="hero.heading.text">Loading…</h1>
+    <p style="margin:16px auto 0;" data-editpath="hero.sub.text">Loading…</p>
   </section>
 
   <div class="form-card">
@@ -42,13 +60,181 @@
 
 <div id="site-footer"></div>
 
-<script type="module">
-  import { renderHeader, renderFooter } from './assets/site-chrome.js';
-  import { supabase } from './shared/supabaseClient.js';
+<div class="cms-panel-backdrop" id="panelBackdrop" onclick="closeCmsPanel()"></div>
+<div class="cms-panel" id="cmsPanel"></div>
 
-  renderHeader('quote.html');
-  renderFooter();
+<div class="modal-backdrop" id="saveModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('saveModal')">✕</button>
+    <h3 style="font-size:19px;font-weight:800;margin-bottom:6px;">Save changes</h3>
+    <p style="background:#E6F4EC; color:#1E6B3E; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;">Saving writes this content to Supabase — every visitor sees it immediately.</p>
+    <button class="btn-primary" style="width:100%;" onclick="confirmSave()">Save — goes live for everyone</button>
+    <div id="saveError" class="form-error" style="display:none;"></div>
+  </div>
+</div>
 
+<script>
+let supabase, checkIsAdmin, cms;
+let currentUser = null;
+let isAdmin = false;
+let editModeOn = true;
+let hasUnsavedChanges = false;
+let history = [];
+
+const DEFAULT_DATA = {
+  lang: 'en',
+  hero: {
+    margin: {mt:0, mb:0},
+    eyebrow: { text:{en:'Custom quote',et:'Eripakkumine',ru:'Индивидуальное предложение',sv:'Anpassad offert'}, hidden:false },
+    heading: { text:{en:"Doesn't fit the packages? Tell us what you need.",et:'Ei sobi pakettidega? Räägi meile, mida vajad.',ru:'Не подходит по пакетам? Расскажите, что нужно.',sv:'Passar inte paketen? Berätta vad du behöver.'}, hidden:false },
+    sub: { text:{en:"A few details and we'll come back with a fixed price and timeline — usually within a couple of days.",et:'Mõni detail ja saadame fikseeritud hinna ning ajakava.',ru:'Немного деталей — и мы пришлём фиксированную цену и сроки.',sv:'Några detaljer så återkommer vi med fast pris och tidsplan.'}, hidden:false }
+  }
+};
+let siteData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+let lastSavedSnapshot = null;
+
+function canEdit(){ return isAdmin && editModeOn; }
+
+function render(){
+  const t = (f) => f[siteData.lang] || f.en || '';
+  document.getElementById('heroBlock').style.marginTop = siteData.hero.margin.mt + 'px';
+  document.getElementById('heroBlock').style.marginBottom = siteData.hero.margin.mb + 'px';
+  document.querySelector('#heroBlock [data-editpath="hero.eyebrow.text"]').textContent = t(siteData.hero.eyebrow.text);
+  document.querySelector('#heroBlock h1').textContent = t(siteData.hero.heading.text);
+  document.querySelector('#heroBlock p').textContent = t(siteData.hero.sub.text);
+  const eb = document.querySelector('#heroBlock .eyebrow');
+  if (!eb.querySelector('.edit-pencil')) eb.insertAdjacentHTML('beforeend', '<span class="edit-pencil cms-edit-pencil" onclick="openHeroPanel()">✎</span>');
+  let gear = document.getElementById('heroGear');
+  if (canEdit() && !gear) {
+    document.getElementById('heroBlock').insertAdjacentHTML('afterbegin', '<div class="cms-section-gear" id="heroGear" onclick="openHeroSpacingPanel()" style="display:flex;">⚙</div>');
+  } else if (!canEdit() && gear) {
+    gear.remove();
+  }
+
+  document.body.classList.toggle('cms-edit', canEdit());
+  updateSaveButtonState();
+  const hc = document.getElementById('hiddenCount');
+  if (hc) hc.textContent = '0';
+}
+
+function openHeroSpacingPanel(){
+  openCmsPanel(`
+    <button class="close-btn" onclick="closeCmsPanel()">✕</button>
+    <h4>Intro spacing</h4>
+    ${cms.spacingPanelHtml(siteData.hero.margin, 'heroBlock', 'applyHeroSpacing')}
+  `);
+}
+function applyHeroSpacing(){
+  pushHistory();
+  siteData.hero.margin.mt = parseInt(document.getElementById('f_mt').value);
+  siteData.hero.margin.mb = parseInt(document.getElementById('f_mb').value);
+  markChanged(); closeCmsPanel(); render();
+}
+function openHiddenDrawer(){
+  document.getElementById('hiddenList').innerHTML = '<p style="color:#666;font-size:13px;padding:10px 0;">Nothing on this page can be hidden yet — just the intro text, which you can edit directly.</p>';
+  document.getElementById('hiddenDrawer').classList.toggle('open');
+}
+
+function updateSaveButtonState(){
+  const btn = document.getElementById('saveBtn');
+  if (!btn) return;
+  btn.textContent = hasUnsavedChanges ? 'Save changes •' : 'Save changes';
+  btn.style.opacity = hasUnsavedChanges ? '1' : '.6';
+}
+function markChanged(){ hasUnsavedChanges = true; updateSaveButtonState(); }
+function pushHistory(){ history.push(JSON.stringify(siteData)); if (history.length>25) history.shift(); }
+function cmsUndo(){
+  if (!history.length) { alert('Nothing to undo yet.'); return; }
+  siteData = JSON.parse(history.pop());
+  markChanged(); render();
+}
+
+function openCmsPanel(html){
+  document.getElementById('cmsPanel').innerHTML = html;
+  document.getElementById('cmsPanel').classList.add('open');
+  document.getElementById('panelBackdrop').classList.add('open');
+}
+function closeCmsPanel(){
+  document.getElementById('cmsPanel').classList.remove('open');
+  document.getElementById('panelBackdrop').classList.remove('open');
+}
+function openHeroPanel(){
+  const h = siteData.hero;
+  openCmsPanel(`
+    <button class="close-btn" onclick="closeCmsPanel()">✕</button>
+    <h4>Edit intro</h4>
+    <label>Eyebrow</label>
+    <input type="text" id="f_eb" value="${h.eyebrow.text[siteData.lang]}">
+    <label>Heading</label>
+    <input type="text" id="f_head" value="${h.heading.text[siteData.lang]}">
+    <label>Subtext</label>
+    <textarea id="f_sub">${h.sub.text[siteData.lang]}</textarea>
+    <button class="go-btn" onclick="saveHeroPanel()">Apply</button>
+  `);
+}
+function saveHeroPanel(){
+  pushHistory();
+  siteData.hero.eyebrow.text[siteData.lang] = document.getElementById('f_eb').value;
+  siteData.hero.heading.text[siteData.lang] = document.getElementById('f_head').value;
+  siteData.hero.sub.text[siteData.lang] = document.getElementById('f_sub').value;
+  markChanged(); closeCmsPanel(); render();
+}
+
+function toggleEditMode(checked){ editModeOn = checked; render(); }
+async function exitAdmin(){
+  await supabase.auth.signOut();
+  window.location.href = 'index.html';
+}
+function openSavePanel(){ openModal('saveModal'); }
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+async function confirmSave(){
+  const errEl = document.getElementById('saveError');
+  errEl.style.display = 'none';
+  try {
+    await cms.savePageContent('quote', siteData);
+    lastSavedSnapshot = JSON.parse(JSON.stringify(siteData));
+    hasUnsavedChanges = false;
+    updateSaveButtonState();
+    closeModal('saveModal');
+    alert('Saved — live for every visitor now.');
+  } catch (err) {
+    errEl.textContent = 'Save failed: ' + err.message;
+    errEl.style.display = 'block';
+  }
+}
+
+(async function init(){
+  const clientMod = await import('./shared/supabaseClient.js');
+  const authMod = await import('./shared/auth.js');
+  cms = await import('./shared/cms-core.js');
+  supabase = clientMod.supabase;
+  checkIsAdmin = authMod.isAdmin;
+
+  try {
+    const published = await cms.loadPageContent('quote');
+    if (published) { siteData = published; lastSavedSnapshot = JSON.parse(JSON.stringify(published)); }
+    else lastSavedSnapshot = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  } catch (err) {
+    console.error(err);
+    lastSavedSnapshot = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  currentUser = user || null;
+  if (currentUser) {
+    isAdmin = await checkIsAdmin(currentUser.id);
+    if (isAdmin) document.getElementById('cms-adminbar').classList.add('on');
+  }
+
+  cms.bindInlineEditing({
+    canEdit,
+    getRoot: () => siteData,
+    getLang: () => siteData.lang,
+    onChanged: (changed) => { if (changed) markChanged(); render(); }
+  });
+
+  // Original quote-form submission logic — unchanged
   document.getElementById('quoteForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const errEl = document.getElementById('err'), okEl = document.getElementById('ok');
@@ -71,6 +257,13 @@
     okEl.style.display = 'block';
     document.getElementById('quoteForm').reset();
   });
+
+  const { renderHeader, renderFooter } = await import('./assets/site-chrome.js');
+  renderHeader('quote.html');
+  renderFooter();
+
+  render();
+})();
 </script>
 </body>
 </html>

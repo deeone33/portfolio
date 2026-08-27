@@ -6,28 +6,44 @@
 <link rel="stylesheet" href="assets/styles.css">
 <style>
   .work-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:20px; padding-bottom:60px;}
-  .work-card{border-radius:16px; overflow:hidden; border:1px solid var(--hair); background:var(--ink2); box-shadow:0 2px 10px -6px var(--shadow); transition:.18s ease;}
+  .work-card{border-radius:16px; overflow:hidden; border:1px solid var(--hair); background:var(--ink2); box-shadow:0 2px 10px -6px var(--shadow); transition:.18s ease; position:relative;}
   .work-card:hover{transform:translateY(-3px); box-shadow:0 16px 34px -14px var(--shadow);}
-  .work-thumb{height:220px; display:flex; align-items:center; justify-content:center;}
-  .work-thumb.p0{background:linear-gradient(135deg,#EFE3DC,#E3D3C8);}
-  .work-thumb.p1{background:linear-gradient(135deg,#DCE6E9,#C9DADD);}
-  .work-thumb.p2{background:linear-gradient(135deg,#E6E1EC,#D6CEE0);}
-  .work-thumb.p3{background:linear-gradient(135deg,#DEE7DA,#C9D9C4);}
-  .work-thumb svg{width:40px; height:40px; color:var(--paper); opacity:.35;}
+  .work-thumb{height:220px; display:flex; align-items:center; justify-content:center; background-size:cover; background-position:center;}
+  .work-thumb svg{width:40px; height:40px; opacity:.35;}
   .work-body{padding:20px 22px;}
   .work-body h3{font-size:17px; font-weight:700;}
   .work-body p{font-size:13.5px; color:var(--mute); margin-top:6px; line-height:1.55;}
   .work-tag{display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--coral); margin-top:10px;}
+  .cms-add-tile.work-add{min-height:280px;}
+  @media (max-width:820px){ .work-grid{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
+
+<div id="cms-adminbar">
+  <div class="left">
+    <span class="dot"></span>
+    <label><input type="checkbox" id="editModeToggle" checked onchange="toggleEditMode(this.checked)"> Edit mode</label>
+  </div>
+  <div class="left">
+    <button class="muted-btn" onclick="openHiddenDrawer()">Hidden elements (<span id="hiddenCount">0</span>)</button>
+    <button class="muted-btn" onclick="cmsUndo()">Undo</button>
+    <button class="go" id="saveBtn" onclick="openSavePanel()">Save changes</button>
+    <button class="muted-btn" onclick="exitAdmin()">Exit admin</button>
+  </div>
+</div>
+<div class="cms-hidden-drawer" id="hiddenDrawer">
+  <h4>Hidden elements — restore anytime</h4>
+  <div id="hiddenList"></div>
+</div>
+
 <div id="site-header"></div>
 
 <div class="wrap">
-  <section class="page-hero">
-    <div class="eyebrow">Selected work</div>
-    <h1>A few of the sites we've shipped.</h1>
-    <p>Small businesses, mostly across the Baltics — each one designed and built from scratch, never a template.</p>
+  <section class="page-hero cms-editable" id="heroBlock">
+    <div class="eyebrow" data-editpath="hero.eyebrow.text">Loading…<span class="edit-pencil cms-edit-pencil" onclick="openHeroPanel()">✎</span></div>
+    <h1 data-editpath="hero.heading.text">Loading…</h1>
+    <p data-editpath="hero.sub.text">Loading…</p>
   </section>
 
   <div class="work-grid" id="workGrid"></div>
@@ -39,36 +55,309 @@
 
 <div id="site-footer"></div>
 
-<script type="module">
-  import { renderHeader, renderFooter } from './assets/site-chrome.js';
+<div class="cms-panel-backdrop" id="panelBackdrop" onclick="closeCmsPanel()"></div>
+<div class="cms-panel" id="cmsPanel"></div>
+
+<div class="modal-backdrop" id="saveModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('saveModal')">✕</button>
+    <h3 style="font-size:19px;font-weight:800;margin-bottom:6px;">Save changes</h3>
+    <p style="background:#E6F4EC; color:#1E6B3E; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;">Saving writes this content to Supabase — every visitor sees it immediately.</p>
+    <button class="btn-primary" style="width:100%;" onclick="confirmSave()">Save — goes live for everyone</button>
+    <div id="saveError" class="form-error" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+let supabase, checkIsAdmin, cms;
+let currentUser = null;
+let isAdmin = false;
+let editModeOn = true;
+let hasUnsavedChanges = false;
+let history = [];
+let currentEditId = null;
+let _pendingImg = null;
+
+const DEFAULT_DATA = {
+  lang: 'en',
+  hero: {
+    margin: {mt:0, mb:0},
+    eyebrow: { text:{en:'Selected work',et:'Valitud tööd',ru:'Избранные работы',sv:'Utvalda arbeten'}, hidden:false },
+    heading: { text:{en:"A few of the sites we've shipped.",et:'Mõned meie valminud lehtedest.',ru:'Некоторые из наших готовых сайтов.',sv:'Några av våra levererade sajter.'}, hidden:false },
+    sub: { text:{en:"Small businesses, mostly across the Baltics — each one designed and built from scratch, never a template.",et:'Väikeettevõtted, peamiselt Baltikumis — igaüks disainitud ja ehitatud nullist.',ru:'Малый бизнес, в основном в Прибалтике — каждый сайт создан с нуля.',sv:'Småföretag, mestadels i Baltikum — varje sajt designad och byggd från grunden.'}, hidden:false }
+  },
+  cards: [
+    { id:'w1', order:0, hidden:false, image:null, icon:'cart', tint:null, link:'', tag:{en:'E-commerce',et:'E-pood',ru:'Интернет-магазин',sv:'E-handel'}, title:{en:'Nordic Bakery',et:'Nordic Bakery',ru:'Nordic Bakery',sv:'Nordic Bakery'}, desc:{en:'Full online storefront with local delivery scheduling and seasonal menus.',et:'Veebipood kohaliku tarne ja hooajaliste menüüdega.',ru:'Интернет-магазин с доставкой и сезонным меню.',sv:'Webbutik med lokal leverans och säsongsmenyer.'} },
+    { id:'w2', order:1, hidden:false, image:null, icon:'calendar', tint:null, link:'', tag:{en:'Booking',et:'Broneerimine',ru:'Бронирование',sv:'Bokning'}, title:{en:'Tallinn Yoga Room',et:'Tallinn Yoga Room',ru:'Tallinn Yoga Room',sv:'Tallinn Yoga Room'}, desc:{en:'Class booking, membership tiers, and a waitlist system for popular sessions.',et:'Tundide broneerimine ja liikmesuse tasemed.',ru:'Бронирование занятий и уровни членства.',sv:'Klassbokning och medlemsnivåer.'} },
+    { id:'w3', order:2, hidden:false, image:null, icon:'users', tint:null, link:'', tag:{en:'Community',et:'Kogukond',ru:'Сообщество',sv:'Community'}, title:{en:'Baltic Fitness Studio',et:'Baltic Fitness Studio',ru:'Baltic Fitness Studio',sv:'Baltic Fitness Studio'}, desc:{en:'Member portal with class schedules, progress tracking, and a private forum.',et:'Liikmeportaal tundide ja edenemise jälgimisega.',ru:'Портал участников с расписанием и отслеживанием прогресса.',sv:'Medlemsportal med schema och progressspårning.'} },
+    { id:'w4', order:3, hidden:false, image:null, icon:'layers', tint:null, link:'', tag:{en:'Portfolio',et:'Portfoolio',ru:'Портфолио',sv:'Portfolio'}, title:{en:'Studio Marek',et:'Studio Marek',ru:'Studio Marek',sv:'Studio Marek'}, desc:{en:'A minimal, image-led portfolio for an architecture practice.',et:'Minimalistlik portfoolio arhitektuuribüroole.',ru:'Минималистичное портфолио для архитектурного бюро.',sv:'Ett minimalistiskt portfolio för en arkitektbyrå.'} },
+    { id:'w5', order:4, hidden:false, image:null, icon:'heart', tint:null, link:'', tag:{en:'Services',et:'Teenused',ru:'Услуги',sv:'Tjänster'}, title:{en:'Riia Skin Clinic',et:'Riia Skin Clinic',ru:'Riia Skin Clinic',sv:'Riia Skin Clinic'}, desc:{en:'Appointment booking with automated reminders and a treatment price list.',et:'Aja broneerimine automaatsete meeldetuletustega.',ru:'Запись на приём с автоматическими напоминаниями.',sv:'Tidsbokning med automatiska påminnelser.'} },
+    { id:'w6', order:5, hidden:false, image:null, icon:'book', tint:null, link:'', tag:{en:'Content',et:'Sisu',ru:'Контент',sv:'Innehåll'}, title:{en:'Estonian Folk Archive',et:'Estonian Folk Archive',ru:'Estonian Folk Archive',sv:'Estonian Folk Archive'}, desc:{en:'A searchable multilingual archive with contributor accounts.',et:'Otsitav mitmekeelne arhiiv.',ru:'Многоязычный архив с возможностью поиска.',sv:'Ett sökbart flerspråkigt arkiv.'} }
+  ]
+};
+let siteData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+let lastSavedSnapshot = null;
+
+function canEdit(){ return isAdmin && editModeOn; }
+function t(field){ if (!field) return ''; return field[siteData.lang] || field.en || ''; }
+
+function render(){
+  document.getElementById('heroBlock').style.marginTop = siteData.hero.margin.mt + 'px';
+  document.getElementById('heroBlock').style.marginBottom = siteData.hero.margin.mb + 'px';
+  document.querySelector('#heroBlock [data-editpath="hero.eyebrow.text"]').textContent = t(siteData.hero.eyebrow.text);
+  document.querySelector('#heroBlock h1').textContent = t(siteData.hero.heading.text);
+  document.querySelector('#heroBlock p').textContent = t(siteData.hero.sub.text);
+  const eb = document.querySelector('#heroBlock .eyebrow');
+  if (!eb.querySelector('.edit-pencil')) eb.insertAdjacentHTML('beforeend', '<span class="edit-pencil cms-edit-pencil" onclick="openHeroPanel()">✎</span>');
+  let gear = document.getElementById('heroGear');
+  if (canEdit() && !gear) {
+    document.getElementById('heroBlock').insertAdjacentHTML('afterbegin', '<div class="cms-section-gear" id="heroGear" onclick="openHeroSpacingPanel()" style="display:flex;">⚙</div>');
+  } else if (!canEdit() && gear) {
+    gear.remove();
+  }
+
+  const visible = [...siteData.cards].filter(c=>!c.hidden).sort((a,b)=>a.order-b.order);
+  const cardsHtml = visible.map((c,idx,arr) => {
+    const href = canEdit() ? 'javascript:void(0)' : (c.link || '#');
+    const targetAttr = canEdit() ? '' : ' target="_blank" rel="noopener"';
+    return `
+    <div class="work-card cms-box-wrap cms-editable" data-id="${c.id}">
+      ${canEdit()?`<div class="cms-reorder">
+        <button onclick="moveCard('${c.id}',-1)" ${idx===0?'disabled':''}>↑</button>
+        <button onclick="moveCard('${c.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
+      </div>`:''}
+      <a href="${href}"${targetAttr} style="color:inherit;text-decoration:none;display:block;">
+        <div class="work-thumb" style="${c.image?`background-image:url(${c.image})`:''}">
+          ${c.image?'':`<span style="color:#8A8F96;">${cms.iconSvg(c.icon)}</span>`}
+        </div>
+        <div class="work-body">
+          <span class="work-tag">${t(c.tag)}</span>
+          <h3 data-editpath="cards[${c.id}].title">${t(c.title)}</h3>
+          <p data-editpath="cards[${c.id}].desc">${t(c.desc)}</p>
+        </div>
+      </a>
+      <span class="edit-pencil cms-edit-pencil" onclick="openCardPanel('${c.id}')">✎</span>
+    </div>`;
+  }).join('');
+  const addTile = canEdit() ? `<div class="cms-add-tile work-add" onclick="addCard()"><span>+</span><div>Add project</div></div>` : '';
+  document.getElementById('workGrid').innerHTML = cardsHtml + addTile;
+
+  document.body.classList.toggle('cms-edit', canEdit());
+  updateSaveButtonState();
+  updateHiddenCount();
+}
+function updateHiddenCount(){
+  const el = document.getElementById('hiddenCount');
+  if (!el) return;
+  el.textContent = cms.collectHidden([{ labelFn: c => t(c.title), items: siteData.cards }]).length;
+}
+
+function updateSaveButtonState(){
+  const btn = document.getElementById('saveBtn');
+  if (!btn) return;
+  btn.textContent = hasUnsavedChanges ? 'Save changes •' : 'Save changes';
+  btn.style.opacity = hasUnsavedChanges ? '1' : '.6';
+}
+function markChanged(){ hasUnsavedChanges = true; updateSaveButtonState(); }
+function pushHistory(){ history.push(JSON.stringify(siteData)); if (history.length>25) history.shift(); }
+function cmsUndo(){
+  if (!history.length) { alert('Nothing to undo yet.'); return; }
+  siteData = JSON.parse(history.pop());
+  markChanged(); render();
+}
+
+function openCmsPanel(html){
+  document.getElementById('cmsPanel').innerHTML = html;
+  document.getElementById('cmsPanel').classList.add('open');
+  document.getElementById('panelBackdrop').classList.add('open');
+}
+function closeCmsPanel(){
+  document.getElementById('cmsPanel').classList.remove('open');
+  document.getElementById('panelBackdrop').classList.remove('open');
+}
+
+function openHeroPanel(){
+  const h = siteData.hero;
+  openCmsPanel(`
+    <button class="close-btn" onclick="closeCmsPanel()">✕</button>
+    <h4>Edit intro</h4>
+    <label>Eyebrow</label>
+    <input type="text" id="f_eb" value="${h.eyebrow.text[siteData.lang]}">
+    <label>Heading</label>
+    <input type="text" id="f_head" value="${h.heading.text[siteData.lang]}">
+    <label>Subtext</label>
+    <textarea id="f_sub">${h.sub.text[siteData.lang]}</textarea>
+    <button class="go-btn" onclick="saveHeroPanel()">Apply</button>
+  `);
+}
+function saveHeroPanel(){
+  pushHistory();
+  siteData.hero.eyebrow.text[siteData.lang] = document.getElementById('f_eb').value;
+  siteData.hero.heading.text[siteData.lang] = document.getElementById('f_head').value;
+  siteData.hero.sub.text[siteData.lang] = document.getElementById('f_sub').value;
+  markChanged(); closeCmsPanel(); render();
+}
+
+function openHeroSpacingPanel(){
+  openCmsPanel(`
+    <button class="close-btn" onclick="closeCmsPanel()">✕</button>
+    <h4>Intro spacing</h4>
+    ${cms.spacingPanelHtml(siteData.hero.margin, 'heroBlock', 'applyHeroSpacing')}
+  `);
+}
+function applyHeroSpacing(){
+  pushHistory();
+  siteData.hero.margin.mt = parseInt(document.getElementById('f_mt').value);
+  siteData.hero.margin.mb = parseInt(document.getElementById('f_mb').value);
+  markChanged(); closeCmsPanel(); render();
+}
+
+let _hiddenCache = [];
+function openHiddenDrawer(){
+  _hiddenCache = cms.collectHidden([{ labelFn: c => t(c.title), items: siteData.cards }]);
+  document.getElementById('hiddenList').innerHTML = cms.renderHiddenDrawerHtml(_hiddenCache);
+  window.__restoreHidden = (i) => {
+    pushHistory();
+    _hiddenCache[i].unhide();
+    markChanged(); render(); openHiddenDrawer();
+  };
+  document.getElementById('hiddenDrawer').classList.toggle('open');
+}
+
+function openCardPanel(id){
+  currentEditId = id;
+  _pendingImg = null;
+  const c = siteData.cards.find(x=>x.id===id);
+  openCmsPanel(`
+    <button class="close-btn" onclick="closeCmsPanel()">✕</button>
+    <h4>Edit project</h4>
+    <label>Category tag</label>
+    <input type="text" id="f_tag" value="${c.tag[siteData.lang]}">
+    <label>Title</label>
+    <input type="text" id="f_title" value="${c.title[siteData.lang]}">
+    <label>Description</label>
+    <textarea id="f_desc">${c.desc[siteData.lang]}</textarea>
+    <label>Link to live example</label>
+    <input type="text" id="f_link" placeholder="https://..." value="${c.link||''}">
+    <label>Placeholder icon (used until a photo is uploaded)</label>
+    ${cms.iconPickerHtml(c.icon, 'setCardIcon')}
+    <label>Photo</label>
+    <input type="file" id="f_img" accept="image/*" onchange="previewCardImg(event)">
+    <div style="margin-top:8px;width:100%;height:80px;border-radius:6px;background-size:cover;background-position:center;border:1px solid var(--hair);${c.image?`background-image:url(${c.image})`:''}" id="imgPrev"></div>
+    <button class="go-btn" onclick="saveCardPanel()">Apply</button>
+    <button class="danger-btn" onclick="removeCard('${id}')">Remove</button>
+  `);
+}
+function previewCardImg(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { _pendingImg = reader.result; document.getElementById('imgPrev').style.backgroundImage = `url(${_pendingImg})`; };
+  reader.readAsDataURL(file);
+}
+function saveCardPanel(){
+  pushHistory();
+  const c = siteData.cards.find(x=>x.id===currentEditId);
+  c.tag[siteData.lang] = document.getElementById('f_tag').value;
+  c.title[siteData.lang] = document.getElementById('f_title').value;
+  c.desc[siteData.lang] = document.getElementById('f_desc').value;
+  c.link = document.getElementById('f_link').value;
+  if (_pendingImg) { c.image = _pendingImg; _pendingImg = null; }
+  markChanged(); closeCmsPanel(); render();
+}
+function setCardIcon(key){
+  pushHistory();
+  const c = siteData.cards.find(x=>x.id===currentEditId);
+  c.icon = key;
+  markChanged(); openCardPanel(currentEditId);
+}
+function addCard(){
+  pushHistory();
+  const maxOrder = siteData.cards.reduce((m,c)=>Math.max(m,c.order),-1);
+  const id = 'w'+Date.now();
+  siteData.cards.push({ id, order:maxOrder+1, hidden:false, image:null, icon:'layout', tint:null, link:'',
+    tag:{en:'Project',et:'Projekt',ru:'Проект',sv:'Projekt'},
+    title:{en:'New project',et:'Uus projekt',ru:'Новый проект',sv:'Nytt projekt'},
+    desc:{en:'Describe this project.',et:'Kirjelda projekti.',ru:'Опишите проект.',sv:'Beskriv projektet.'} });
+  markChanged(); render();
+}
+function removeCard(id){
+  pushHistory();
+  const c = siteData.cards.find(x=>x.id===id);
+  c.hidden = true;
+  markChanged(); closeCmsPanel(); render();
+}
+function moveCard(id, dir){
+  pushHistory();
+  const sorted = [...siteData.cards].sort((a,b)=>a.order-b.order);
+  const idx = sorted.findIndex(x=>x.id===id);
+  const swapIdx = idx+dir;
+  if (swapIdx<0 || swapIdx>=sorted.length) { history.pop(); return; }
+  const tmp = sorted[idx].order; sorted[idx].order = sorted[swapIdx].order; sorted[swapIdx].order = tmp;
+  markChanged(); render();
+}
+
+function toggleEditMode(checked){ editModeOn = checked; render(); }
+async function exitAdmin(){
+  await supabase.auth.signOut();
+  window.location.href = 'index.html';
+}
+
+function openSavePanel(){ openModal('saveModal'); }
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+async function confirmSave(){
+  const errEl = document.getElementById('saveError');
+  errEl.style.display = 'none';
+  try {
+    await cms.savePageContent('work', siteData);
+    lastSavedSnapshot = JSON.parse(JSON.stringify(siteData));
+    hasUnsavedChanges = false;
+    updateSaveButtonState();
+    closeModal('saveModal');
+    alert('Saved — live for every visitor now.');
+  } catch (err) {
+    errEl.textContent = 'Save failed: ' + err.message;
+    errEl.style.display = 'block';
+  }
+}
+
+(async function init(){
+  const clientMod = await import('./shared/supabaseClient.js');
+  const authMod = await import('./shared/auth.js');
+  cms = await import('./shared/cms-core.js');
+  supabase = clientMod.supabase;
+  checkIsAdmin = authMod.isAdmin;
+
+  try {
+    const published = await cms.loadPageContent('work');
+    if (published) { siteData = published; lastSavedSnapshot = JSON.parse(JSON.stringify(published)); }
+    else lastSavedSnapshot = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  } catch (err) {
+    console.error(err);
+    lastSavedSnapshot = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  currentUser = user || null;
+  if (currentUser) {
+    isAdmin = await checkIsAdmin(currentUser.id);
+    if (isAdmin) document.getElementById('cms-adminbar').classList.add('on');
+  }
+
+  cms.bindInlineEditing({
+    canEdit,
+    getRoot: () => siteData,
+    getLang: () => siteData.lang,
+    onChanged: (changed) => { if (changed) markChanged(); render(); }
+  });
+
+  const { renderHeader, renderFooter } = await import('./assets/site-chrome.js');
   renderHeader('work.html');
   renderFooter();
 
-  const ICONS = {
-    cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none"/><circle cx="17" cy="20" r="1.4" fill="currentColor" stroke="none"/><path d="M2 3h3l2.5 12h10L20 7H6"/></svg>',
-    calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
-    users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 20c.2-2.6 1.8-4.6 4-5.4"/></svg>',
-    layout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg>',
-    heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-4.5-9.5-9C.5 8 2 4 6 4c2.3 0 3.7 1.3 4.5 2.5 0 0 .5-.5 1.5-.5C15.5 6 20 8.5 20 12c0 4.5-8 9-8 9z"/></svg>',
-    book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg>',
-  };
-  const items = [
-    { icon:'cart', p:'p0', tag:'E-commerce', title:'Nordic Bakery', desc:'Full online storefront with local delivery scheduling and seasonal menus.' },
-    { icon:'calendar', p:'p1', tag:'Booking', title:'Tallinn Yoga Room', desc:'Class booking, membership tiers, and a waitlist system for popular sessions.' },
-    { icon:'users', p:'p2', tag:'Community', title:'Baltic Fitness Studio', desc:'Member portal with class schedules, progress tracking, and a private forum.' },
-    { icon:'layout', p:'p3', tag:'Portfolio', title:'Studio Marek', desc:'A minimal, image-led portfolio for an architecture practice.' },
-    { icon:'heart', p:'p0', tag:'Services', title:'Riia Skin Clinic', desc:'Appointment booking with automated reminders and a treatment price list.' },
-    { icon:'book', p:'p1', tag:'Content', title:'Estonian Folk Archive', desc:'A searchable multilingual archive with contributor accounts.' },
-  ];
-  document.getElementById('workGrid').innerHTML = items.map(it => `
-    <div class="work-card">
-      <div class="work-thumb ${it.p}">${ICONS[it.icon]}</div>
-      <div class="work-body">
-        <span class="work-tag">${it.tag}</span>
-        <h3>${it.title}</h3>
-        <p>${it.desc}</p>
-      </div>
-    </div>`).join('');
+  render();
+})();
 </script>
 </body>
 </html>
