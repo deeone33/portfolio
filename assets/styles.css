@@ -11,7 +11,7 @@ a{color:inherit; text-decoration:none;}
 ul{list-style:none;}
 
 /* ---------- HEADER / NAV (shared across all pages) ---------- */
-header.site{display:flex; justify-content:space-between; align-items:center; padding:28px 0;}
+header.site{display:flex; justify-content:space-between; align-items:center; padding:28px 44px; max-width:1120px; margin:0 auto; box-sizing:border-box;}
 .logo{font-weight:800; font-size:19px; letter-spacing:-.01em;}
 .logo .dot{color:var(--coral);}
 nav.site{display:flex; align-items:center; gap:22px;}
@@ -98,7 +98,7 @@ textarea{min-height:100px; resize:vertical;}
 .modal{background:var(--ink); border:1px solid var(--hair); border-radius:16px; padding:32px; width:360px; box-shadow:0 30px 60px -20px var(--shadow); position:relative;}
 .modal-close{position:absolute; top:16px; right:16px; background:none; border:none; color:var(--mute); font-size:18px; cursor:pointer;}
 
-footer.site{padding:30px 0 50px; border-top:1px solid var(--hair); display:flex; justify-content:space-between; font-size:13px; color:var(--mute);}
+footer.site{padding:30px 44px 50px; max-width:1120px; margin:0 auto; box-sizing:border-box; border-top:1px solid var(--hair); display:flex; justify-content:space-between; font-size:13px; color:var(--mute);}
 footer.site a{margin-left:22px; color:var(--mute);}
 footer.site a:hover{color:var(--paper);}
 

@@ -271,19 +271,6 @@
 
 <div class="wrap" id="site"></div>
 
-<!-- LOGIN MODAL -->
-<div class="modal-backdrop" id="loginModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
-    <h3>Admin sign in</h3>
-    <p>Studio access only.</p>
-    <input type="email" placeholder="Email" id="loginEmail" value="admin@fieldnote.studio">
-    <input type="password" placeholder="Password" id="loginPass" value="••••••••">
-    <button class="go" onclick="doLogin()">Sign in</button>
-    <div class="note">Prototype mode — any credentials work. Real build uses Supabase Auth.</div>
-  </div>
-</div>
-
 <!-- EDIT PANEL -->
 <div id="panel-backdrop" onclick="closePanel()"></div>
 <div id="panel"></div>
@@ -306,6 +293,8 @@
 </div>
 
 <script>
+let supabase, checkIsAdmin;
+let currentUser = null;
 /* =========================================================================
    CONTENT MODEL
    This whole object is what would live in Supabase as rows in `page_elements`.
@@ -313,7 +302,7 @@
    per-language content, style, hidden flag, and (for boxes) size/image.
    ========================================================================= */
 const DEFAULT_DATA = {
-  _schema: 7, // bump this whenever the section/style structure changes shape — prevents old saved data from loading into a new layout model
+  _schema: 8, // bump this whenever the section/style structure changes shape — prevents old saved data from loading into a new layout model
   lang: 'en',
   sections: {
     header: {
@@ -349,10 +338,12 @@ const DEFAULT_DATA = {
       order:2.5, hidden:false, margin:{mt:50,mb:0}, autoplaySpeed:0.8,
       heading: { text:{en:'Recent work',et:'Viimased tööd',ru:'Недавние работы',sv:'Senaste arbeten'}, style:{size:24,weight:800,italic:false,color:'#1E2126'}, hidden:false },
       items: [
-        {id:'w1', order:0, hidden:false, image:null, icon:'cart', link:'', caption:{en:'Retail storefront',et:'E-pood',ru:'Интернет-магазин',sv:'Butik online'}},
-        {id:'w2', order:1, hidden:false, image:null, icon:'calendar', link:'', caption:{en:'Booking platform',et:'Broneerimisleht',ru:'Платформа бронирования',sv:'Bokningsplattform'}},
-        {id:'w3', order:2, hidden:false, image:null, icon:'users', link:'', caption:{en:'Community hub',et:'Kogukonna leht',ru:'Сайт сообщества',sv:'Communityssida'}},
-        {id:'w4', order:3, hidden:false, image:null, icon:'layout', link:'', caption:{en:'Portfolio site',et:'Portfoolio',ru:'Портфолио',sv:'Portfolio'}}
+        {id:'w1', order:0, hidden:false, image:null, icon:'cart', link:'work.html', caption:{en:'Nordic Bakery',et:'Nordic Bakery',ru:'Nordic Bakery',sv:'Nordic Bakery'}},
+        {id:'w2', order:1, hidden:false, image:null, icon:'calendar', link:'work.html', caption:{en:'Tallinn Yoga Room',et:'Tallinn Yoga Room',ru:'Tallinn Yoga Room',sv:'Tallinn Yoga Room'}},
+        {id:'w3', order:2, hidden:false, image:null, icon:'users', link:'work.html', caption:{en:'Baltic Fitness Studio',et:'Baltic Fitness Studio',ru:'Baltic Fitness Studio',sv:'Baltic Fitness Studio'}},
+        {id:'w4', order:3, hidden:false, image:null, icon:'layout', link:'work.html', caption:{en:'Studio Marek',et:'Studio Marek',ru:'Studio Marek',sv:'Studio Marek'}},
+        {id:'w5', order:4, hidden:false, image:null, icon:'heart', link:'work.html', caption:{en:'Riia Skin Clinic',et:'Riia Skin Clinic',ru:'Riia Skin Clinic',sv:'Riia Skin Clinic'}},
+        {id:'w6', order:5, hidden:false, image:null, icon:'book', link:'work.html', caption:{en:'Estonian Folk Archive',et:'Estonian Folk Archive',ru:'Estonian Folk Archive',sv:'Estonian Folk Archive'}}
       ]
     },
     bento: {
@@ -518,7 +509,7 @@ function renderHeader(){
             ${['et','en','ru','sv'].map(l=>`<div class="lang-option ${siteData.lang===l?'active':''}" onclick="setLang('${l}')"><span class="lang-flag">${flagSvg(l)}</span>${langName(l)}</div>`).join('')}
           </div>
         </div>
-        <button class="account-btn" onclick="openModal('loginModal')" aria-label="Account">${personIcon()}</button>
+        <button class="account-btn" onclick="window.location.href='${currentUser ? 'account.html' : 'login.html?returnTo=' + encodeURIComponent('index.html')}'" aria-label="Account">${personIcon()}</button>
         <a class="cta editable" data-kind="headerCta" href="${h.ctaLink}">${t(h.ctaText)}<span class="edit-pencil">✎</span></a>
       </nav>
     </header>
@@ -907,15 +898,10 @@ function saveLocal(){ localStorage.setItem('fieldnote_content', JSON.stringify(s
 /* ---------------- ADMIN LOGIN ---------------- */
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
-function doLogin(){
-  isAdmin = true;
-  closeModal('loginModal');
-  document.body.classList.add('admin');
-  document.getElementById('adminbar').classList.add('on');
-  render();
-}
-function exitAdmin(){
+async function exitAdmin(){
+  await supabase.auth.signOut();
   isAdmin = false;
+  currentUser = null;
   document.body.classList.remove('admin');
   document.getElementById('adminbar').classList.remove('on');
   render();
@@ -1476,7 +1462,23 @@ function confirmPublish(){
 }
 
 /* ---------------- INIT ---------------- */
-render();
+(async function initAuth(){
+  const clientMod = await import('./shared/supabaseClient.js');
+  const authMod = await import('./shared/auth.js');
+  supabase = clientMod.supabase;
+  checkIsAdmin = authMod.isAdmin;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  currentUser = user || null;
+  if (currentUser) {
+    isAdmin = await checkIsAdmin(currentUser.id);
+    if (isAdmin) {
+      document.body.classList.add('admin');
+      document.getElementById('adminbar').classList.add('on');
+    }
+  }
+  render();
+})();
 </script>
 </body>
 </html>
