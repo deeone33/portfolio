@@ -85,6 +85,7 @@ create table orders (
   notes text,                         -- customer's project notes at checkout
   stripe_checkout_session_id text,
   stripe_payment_intent_id text,
+  review_requested_at timestamptz,    -- set when staff asks this customer for a review
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

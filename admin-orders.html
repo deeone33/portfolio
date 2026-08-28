@@ -68,6 +68,7 @@
     <button data-tab="orders" class="on">Orders</button>
     <button data-tab="analytics">Analytics</button>
     <button data-tab="chat">Chat <span id="chatBadge" style="display:none; background:var(--admin); color:#fff; border-radius:100px; font-size:10px; font-weight:700; padding:2px 6px; margin-left:4px;"></span></button>
+    <button data-tab="inbox">Inbox</button>
   </div>
 
   <div class="tab-panel on" id="panel-orders">
@@ -121,6 +122,19 @@
       </div>
     </div>
   </div>
+
+  <div class="tab-panel" id="panel-inbox">
+    <div class="analytics-card">
+      <h3>Quote & contact requests</h3>
+      <div class="sub" style="font-size:12px; color:var(--mute); margin-bottom:14px;">From the "Get a quote" form.</div>
+      <div id="quoteRequestsList"></div>
+    </div>
+    <div class="analytics-card">
+      <h3>Chat conversations</h3>
+      <div class="sub" style="font-size:12px; color:var(--mute); margin-bottom:14px;">Every conversation, including ones started while no admin was online. Click to open in the Chat tab.</div>
+      <div id="inboxChatList"></div>
+    </div>
+  </div>
 </div>
 
 <div id="site-footer"></div>
@@ -129,10 +143,11 @@
   import { renderHeader, renderFooter } from './assets/site-chrome.js?v3';
   import { supabase } from './shared/supabaseClient.js?v3';
   import { requireAdmin } from './shared/auth.js?v3';
-  import { getAllOrders, updateOrderStatus, postComment, uploadDeliverable, getDownloadUrl, formatMoney, deleteOrder } from './shared/orders.js?v3';
+  import { getAllOrders, updateOrderStatus, postComment, uploadDeliverable, getDownloadUrl, formatMoney, deleteOrder, markReviewRequested } from './shared/orders.js?v3';
   import { getAnalyticsSummary, resetAnalytics, getAllAnalyticsEvents } from './shared/analytics.js?v3';
   import { announceAdminPresence, getOpenSessions, getMessages, sendMessage, subscribeToMessages, subscribeToTyping, closeSession, deleteSession, clearAllChatHistory, subscribeAdminInbox } from './shared/chat.js?v3';
   import { arrayToCsv, downloadCsv } from './shared/csv.js?v3';
+  import { getQuoteRequests, updateQuoteStatus } from './shared/quotes.js?v3';
 
   renderHeader('admin-orders.html');
   renderFooter();
@@ -172,6 +187,7 @@
       btn.classList.add('on');
       document.getElementById('panel-' + btn.dataset.tab).classList.add('on');
       if (btn.dataset.tab === 'chat') { loadChatSessions(); clearChatBadge(); }
+      if (btn.dataset.tab === 'inbox') loadInbox();
     });
   });
 
@@ -262,7 +278,11 @@
             <input type="text" data-comment-input="${o.id}" placeholder="Reply to the customer...">
             <button class="btn-secondary" data-comment-send="${o.id}">Send</button>
           </div>
-          <button data-delete-order="${o.id}" style="margin-top:16px; font-size:12px; color:var(--danger); background:none; border:1px solid var(--danger); border-radius:6px; padding:6px 12px; cursor:pointer;">Delete this order permanently</button>
+          <div style="display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap;">
+            <button data-ask-review="${o.id}" class="btn-secondary" style="font-size:12px; padding:8px 14px;">${o.review_requested_at ? 'Ask again for a review' : 'Ask for a review'}</button>
+            ${o.review_requested_at ? `<span style="font-size:11.5px; color:var(--mute);">Last asked ${formatChatDate(o.review_requested_at)}</span>` : ''}
+          </div>
+          <button data-delete-order="${o.id}" style="margin-top:12px; font-size:12px; color:var(--danger); background:none; border:1px solid var(--danger); border-radius:6px; padding:6px 12px; cursor:pointer;">Delete this order permanently</button>
         </div>
       </div>`;
   }
@@ -326,6 +346,26 @@
           await load();
         } catch (err) {
           alert('Delete failed: ' + err.message);
+        }
+      });
+    });
+    document.querySelectorAll('[data-ask-review]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const orderId = btn.dataset.askReview;
+        const order = allOrders.find(o => o.id === orderId);
+        const email = order?.profiles?.email;
+        if (!email) { alert("This customer's email isn't available."); return; }
+        const name = order.profiles?.full_name || 'there';
+        const subject = "How did we do?";
+        const body = `Hi ${name},\n\nYour project (${order.plan_label}) is complete — thank you for working with Fieldnote! If you have a minute, we'd really appreciate a quick review.\n\n[link to wherever you want reviews — Google, Trustpilot, etc.]\n\nThanks again,\nFieldnote`;
+        window.open(`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+        try {
+          await markReviewRequested(orderId);
+          await postComment(orderId, staffUser.id, 'staff', 'Asked the customer for a review.');
+          expandedOrders.add(orderId);
+          await load();
+        } catch (err) {
+          alert('Could not record the review request: ' + err.message);
         }
       });
     });
@@ -428,6 +468,64 @@
     const sameDay = d.toDateString() === now.toDateString();
     if (sameDay) return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     return d.toLocaleDateString([], {month:'short', day:'numeric'}) + ' · ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }
+
+  const QUOTE_STATUSES = ['new','contacted','closed'];
+  async function loadInbox(){
+    // ---- quote / contact requests ----
+    try {
+      const quotes = await getQuoteRequests();
+      const qEl = document.getElementById('quoteRequestsList');
+      qEl.innerHTML = quotes.length ? quotes.map(q => `
+        <div style="border-top:1px solid var(--hair); padding:14px 0;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div>
+              <div style="font-weight:700; font-size:14px;">${escapeHtml(q.name)}</div>
+              <div style="font-size:12.5px; color:var(--mute); margin-top:2px;">${escapeHtml(q.email)}${q.company ? ' · ' + escapeHtml(q.company) : ''}${q.budget ? ' · ' + escapeHtml(q.budget) : ''}</div>
+              <div style="font-size:11.5px; color:var(--mute); margin-top:2px;">${formatChatDate(q.created_at)}</div>
+            </div>
+            <select class="status-select" data-quote="${q.id}">
+              ${QUOTE_STATUSES.map(s => `<option value="${s}" ${q.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </div>
+          ${q.message ? `<p style="font-size:13px; margin-top:10px; line-height:1.5;">${escapeHtml(q.message)}</p>` : ''}
+          <a href="mailto:${encodeURIComponent(q.email)}?subject=${encodeURIComponent('Re: your Fieldnote quote request')}" style="font-size:12px; font-weight:700; color:var(--coral); display:inline-block; margin-top:8px;">Reply by email →</a>
+        </div>
+      `).join('') : `<div class="analytics-empty">No quote requests yet.</div>`;
+      document.querySelectorAll('[data-quote]').forEach(sel => {
+        sel.addEventListener('change', async () => {
+          try { await updateQuoteStatus(sel.dataset.quote, sel.value); }
+          catch (err) { alert('Update failed: ' + err.message); }
+        });
+      });
+    } catch (err) {
+      document.getElementById('quoteRequestsList').innerHTML = `<div class="form-error">${err.message}</div>`;
+    }
+
+    // ---- chat summary ----
+    try {
+      const sessions = await getOpenSessions();
+      const cEl = document.getElementById('inboxChatList');
+      cEl.innerHTML = sessions.length ? sessions.map(s => {
+        const who = s.visitor_name || s.visitor_email || `Visitor ${s.id.slice(0,6)}`;
+        const lastMsg = (s.chat_messages || []).slice(-1)[0];
+        return `<div data-open-chat="${s.id}" style="border-top:1px solid var(--hair); padding:12px 0; cursor:pointer;">
+          <div style="display:flex; justify-content:space-between;">
+            <div style="font-weight:700; font-size:13.5px;">${escapeHtml(who)}</div>
+            <div style="font-size:11.5px; color:var(--mute);">${formatChatDate(s.created_at)}</div>
+          </div>
+          <div style="font-size:12px; color:var(--mute); margin-top:2px;">${s.visitor_email ? escapeHtml(s.visitor_email) + ' · ' : ''}${lastMsg ? escapeHtml(lastMsg.body) : 'No messages'}</div>
+        </div>`;
+      }).join('') : `<div class="analytics-empty">No conversations yet.</div>`;
+      document.querySelectorAll('[data-open-chat]').forEach(row => {
+        row.addEventListener('click', () => {
+          document.querySelector('[data-tab="chat"]').click();
+          selectChatSession(row.dataset.openChat);
+        });
+      });
+    } catch (err) {
+      document.getElementById('inboxChatList').innerHTML = `<div class="form-error">${err.message}</div>`;
+    }
   }
 
   // ---------------- chat ----------------

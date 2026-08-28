@@ -115,6 +115,11 @@ export async function deleteOrder(orderId) {
   if (error) throw error;
 }
 
+export async function markReviewRequested(orderId) {
+  const { error } = await supabase.from('orders').update({ review_requested_at: new Date().toISOString() }).eq('id', orderId);
+  if (error) throw error;
+}
+
 export async function postComment(orderId, authorId, authorRole, body) {
   const { error } = await supabase.from('order_comments').insert({ order_id: orderId, author_id: authorId, author_role: authorRole, body });
   if (error) throw error;
