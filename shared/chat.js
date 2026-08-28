@@ -127,6 +127,18 @@ export async function closeSession(sessionId) {
   if (error) throw error;
 }
 
+// Deletes one conversation outright — chat_messages cascades automatically
+// via its foreign key, so this is the only call needed.
+export async function deleteSession(sessionId) {
+  const { error } = await supabase.from('chat_sessions').delete().eq('id', sessionId);
+  if (error) throw error;
+}
+
+export async function clearAllChatHistory() {
+  const { error } = await supabase.from('chat_sessions').delete().not('id', 'is', null);
+  if (error) throw error;
+}
+
 /* ============================================================
    PUBLIC WIDGET — floating bubble, bottom-right. Call mountChatWidget()
    once per page. Everything (markup, styling via existing theme

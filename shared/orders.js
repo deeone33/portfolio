@@ -105,6 +105,16 @@ export async function updateOrderStatus(orderId, status) {
   if (error) throw error;
 }
 
+// Permanently deletes an order — order_files and order_comments cascade
+// automatically via their foreign keys. Note: this is a genuine payment
+// record being erased, not just hidden. Cancelling (status update) is the
+// normal way to remove an order from the active view; this is for
+// test data or genuine mistakes.
+export async function deleteOrder(orderId) {
+  const { error } = await supabase.from('orders').delete().eq('id', orderId);
+  if (error) throw error;
+}
+
 export async function postComment(orderId, authorId, authorRole, body) {
   const { error } = await supabase.from('order_comments').insert({ order_id: orderId, author_id: authorId, author_role: authorRole, body });
   if (error) throw error;

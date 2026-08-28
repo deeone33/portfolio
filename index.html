@@ -6,6 +6,7 @@
 <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('fieldnote_theme') || 'light');</script>
 <style>
   :root{
+    --chrome-dark:#1E2126;
     --ink:#EEF0F2; --ink2:#F7F8F9; --paper:#1E2126; --coral:#35414F; --oncoral:#F5F6F7; --oncoral-strong:#EEF0F2;
     --mint:#4E6570; --mute:#50565F; --hair:rgba(30,33,38,.10); --linecol:rgba(30,33,38,.14);
     --dotcol:rgba(30,33,38,.25); --dashcol:rgba(30,33,38,.18); --shadow:rgba(20,22,26,.14);
@@ -32,7 +33,7 @@
   ul{ list-style:none; }
 
   /* ---------- ADMIN BAR ---------- */
-  #adminbar{ display:none; position:sticky; top:0; z-index:200; background:var(--paper); color:#fff; padding:10px 20px; align-items:center; justify-content:space-between; font-size:13px; }
+  #adminbar{ display:none; position:sticky; top:0; z-index:200; background:var(--chrome-dark); color:#fff; padding:10px 20px; align-items:center; justify-content:space-between; font-size:13px; }
   #adminbar.on{ display:flex; }
   #adminbar .left{ display:flex; align-items:center; gap:12px; }
   #adminbar .dot{ width:8px; height:8px; border-radius:50%; background:var(--admin); }
@@ -52,8 +53,8 @@
   nav{ gap:26px; } /* a little more breathing room now that pencils sit inside that gap */
   .reorder-controls{ display:none; position:absolute; top:-12px; left:-12px; flex-direction:column; gap:3px; z-index:15; }
   body.admin.edit-mode .box-wrap:hover .reorder-controls{ display:flex; }
-  .reorder-controls button{ width:22px; height:18px; border:none; background:var(--paper); color:#fff; font-size:10px; cursor:pointer; border-radius:4px; }
-  .section-gear{ display:none; position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.9); border:1px solid var(--hair); align-items:center; justify-content:center; cursor:pointer; font-size:13px; z-index:12; }
+  .reorder-controls button{ width:22px; height:18px; border:none; background:var(--chrome-dark); color:#fff; font-size:10px; cursor:pointer; border-radius:4px; }
+  .section-gear{ display:none; position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.9); color:var(--chrome-dark); border:1px solid var(--hair); align-items:center; justify-content:center; cursor:pointer; font-size:13px; z-index:12; }
   body.admin.edit-mode .section-shell:hover .section-gear{ display:flex; }
   .section-shell{ position:relative; }
 
@@ -68,7 +69,7 @@
   /* ---------- PANEL (side editor) ---------- */
   #panel-backdrop{ position:fixed; inset:0; background:rgba(20,22,26,.35); display:none; z-index:300; }
   #panel-backdrop.open{ display:block; }
-  #panel{ position:fixed; top:0; right:0; height:100%; width:320px; background:#fff; box-shadow:-10px 0 30px rgba(0,0,0,.15); z-index:301; padding:24px; overflow-y:auto; transform:translateX(100%); transition:.25s; }
+  #panel{ position:fixed; top:0; right:0; height:100%; width:320px; background:var(--ink2); box-shadow:-10px 0 30px rgba(0,0,0,.15); z-index:301; padding:24px; overflow-y:auto; transform:translateX(100%); transition:.25s; }
   #panel.open{ transform:translateX(0); }
   #panel h4{ font-size:15px; font-weight:800; margin-bottom:4px; }
   #panel .sub{ font-size:12px; color:var(--mute); margin-bottom:18px; }
@@ -76,12 +77,13 @@
   #panel input[type=text], #panel textarea, #panel select{ width:100%; padding:9px 10px; border:1px solid var(--hair); border-radius:6px; font-size:13.5px; font-family:inherit; }
   #panel textarea{ min-height:70px; resize:vertical; }
   #panel input[type=range]{ width:100%; }
+  #panel input[type=text], #panel textarea, #panel select{ background:var(--ink); color:var(--paper); }
   #panel input[type=color]{ width:100%; height:34px; border:1px solid var(--hair); border-radius:6px; }
   #panel .row{ display:flex; gap:8px; }
   #panel .row > *{ flex:1; }
   #panel .toggle-group{ display:flex; gap:6px; margin-top:4px; }
-  #panel .toggle-group button{ flex:1; padding:8px; border:1px solid var(--hair); background:#fff; border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px; }
-  #panel .toggle-group button.on{ background:var(--paper); color:#fff; border-color:var(--paper); }
+  #panel .toggle-group button{ flex:1; padding:8px; border:1px solid var(--hair); background:var(--ink2); color:var(--paper); border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px; }
+  #panel .toggle-group button.on{ background:var(--chrome-dark); color:#fff; border-color:var(--chrome-dark); }
   #panel .danger{ margin-top:24px; width:100%; padding:11px; border-radius:8px; border:1px solid #E2A79C; background:#FBEDEA; color:#A1352A; font-weight:700; font-size:13px; cursor:pointer; }
   #panel .close-panel{ position:absolute; top:16px; right:16px; background:none; border:none; font-size:16px; cursor:pointer; color:var(--mute); }
   #panel .imgprev{ margin-top:8px; width:100%; height:80px; border-radius:6px; background-size:cover; background-position:center; border:1px solid var(--hair); }
@@ -98,7 +100,7 @@
   .modal .note{ font-size:11.5px; color:var(--mute); margin-top:14px; text-align:center; }
 
   /* ---------- HIDDEN ELEMENTS DRAWER ---------- */
-  #hidden-drawer{ position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--hair); z-index:260; padding:16px 24px; display:none; max-height:40vh; overflow-y:auto; }
+  #hidden-drawer{ position:fixed; bottom:0; left:0; right:0; background:var(--ink2); border-top:1px solid var(--hair); z-index:260; padding:16px 24px; display:none; max-height:40vh; overflow-y:auto; }
   #hidden-drawer.open{ display:block; }
   #hidden-drawer h4{ font-size:14px; margin-bottom:10px; }
   .hidden-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid var(--hair); font-size:13px; }
@@ -193,9 +195,9 @@
   .pstep-icon svg{ width:15px; height:15px; }
 
   .icon-picker{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-top:4px; }
-  .icon-picker button{ aspect-ratio:1; border:1px solid var(--hair); border-radius:8px; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#555; }
+  .icon-picker button{ aspect-ratio:1; border:1px solid var(--hair); border-radius:8px; background:var(--ink2); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--mute); }
   .icon-picker button svg{ width:16px; height:16px; }
-  .icon-picker button.on{ background:var(--paper); color:#fff; border-color:var(--paper); }
+  .icon-picker button.on{ background:var(--chrome-dark); color:#fff; border-color:var(--chrome-dark); }
 
   .strip{ border-top:1px solid var(--hair); border-bottom:1px solid var(--hair); padding:18px 0; }
   .strip .track{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; }
@@ -1402,7 +1404,7 @@ function planPanel(p){
   const featureRows = p.features.map((f,i)=>`
     <div class="row" style="margin-bottom:6px; align-items:center;">
       <input type="text" class="feat-input" data-idx="${i}" value="${(f[siteData.lang]||'').replace(/"/g,'&quot;')}">
-      <button type="button" onclick="removeFeature(${i})" style="flex:0 0 30px; border:1px solid var(--hair); background:#fff; border-radius:6px; cursor:pointer;">✕</button>
+      <button type="button" onclick="removeFeature(${i})" style="flex:0 0 30px; border:1px solid var(--hair); background:var(--ink2); color:var(--paper); border-radius:6px; cursor:pointer;">✕</button>
     </div>`).join('');
   return `
     <button class="close-panel" onclick="closePanel()">✕</button>
@@ -1521,7 +1523,7 @@ function openSectionPanel(sectionKey){
     <div class="sub" style="margin-bottom:6px;">Click a link's own pencil on the page to edit its text or URL. Add or remove links here.</div>
     ${s.navLinks.map(n=>`<div class="row" style="margin-bottom:6px; align-items:center;">
       <div style="flex:1; padding:9px 10px; border:1px solid var(--hair); border-radius:6px; font-size:13px; ${n.hidden?'opacity:.4;':''}">${t(n.text)}${n.hidden?' (hidden)':''}</div>
-      <button type="button" onclick="removeNavLink('${n.id}')" style="flex:0 0 30px; border:1px solid var(--hair); background:#fff; border-radius:6px; cursor:pointer;">✕</button>
+      <button type="button" onclick="removeNavLink('${n.id}')" style="flex:0 0 30px; border:1px solid var(--hair); background:var(--ink2); color:var(--paper); border-radius:6px; cursor:pointer;">✕</button>
     </div>`).join('')}
     <button type="button" onclick="addNavLink()" style="width:100%;padding:9px;border:1px dashed var(--hair);border-radius:6px;background:none;cursor:pointer;font-size:12.5px;color:var(--mute);margin-bottom:6px;">+ Add menu link</button>
   ` : '';

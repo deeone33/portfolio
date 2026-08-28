@@ -1,7 +1,7 @@
 :root{
   --ink:#EEF0F2; --ink2:#F7F8F9; --paper:#1E2126; --coral:#35414F; --oncoral:#F5F6F7; --oncoral-strong:#EEF0F2;
   --mint:#4E6570; --mute:#50565F; --hair:rgba(30,33,38,.10); --linecol:rgba(30,33,38,.14);
-  --shadow:rgba(20,22,26,.14); --admin:#C7501F; --danger:#A1352A;
+  --shadow:rgba(20,22,26,.14); --admin:#C7501F; --danger:#A1352A; --chrome-dark:#1E2126;
 }
 [data-theme="dark"]{
   --ink:#14161A; --ink2:#1C1F24; --paper:#EDEFF2; --coral:#8FA8C7; --oncoral:#14161A; --oncoral-strong:#1C1F24;
@@ -135,7 +135,7 @@ footer.site a:hover{color:var(--paper);}
    SHARED CMS EDITING UI — same visual language as the homepage,
    used by every page that has admin editing enabled.
    ============================================================ */
-#cms-adminbar{ display:none; position:sticky; top:0; z-index:200; background:var(--paper); color:#fff; padding:10px 20px; align-items:center; justify-content:space-between; font-size:13px; flex-wrap:wrap; gap:8px; }
+#cms-adminbar{ display:none; position:sticky; top:0; z-index:200; background:var(--chrome-dark); color:#fff; padding:10px 20px; align-items:center; justify-content:space-between; font-size:13px; flex-wrap:wrap; gap:8px; }
 #cms-adminbar.on{ display:flex; }
 #cms-adminbar .left{ display:flex; align-items:center; gap:12px; }
 #cms-adminbar .dot{ width:8px; height:8px; border-radius:50%; background:var(--admin); }
@@ -153,7 +153,7 @@ body.cms-edit [data-editpath]{ cursor:text; }
 
 .cms-reorder{ display:none; position:absolute; top:-12px; left:-12px; flex-direction:column; gap:3px; z-index:15; }
 body.cms-edit .cms-box-wrap:hover .cms-reorder{ display:flex; }
-.cms-reorder button{ width:22px; height:18px; border:none; background:var(--paper); color:#fff; font-size:10px; cursor:pointer; border-radius:4px; }
+.cms-reorder button{ width:22px; height:18px; border:none; background:var(--chrome-dark); color:#fff; font-size:10px; cursor:pointer; border-radius:4px; }
 .cms-box-wrap{ position:relative; }
 
 .cms-add-tile{ border:1.5px dashed var(--hair); border-radius:14px; background:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; color:var(--mute); font-size:13px; font-weight:600; min-height:120px; }
@@ -162,26 +162,27 @@ body.cms-edit .cms-box-wrap:hover .cms-reorder{ display:flex; }
 
 .icon-badge{ width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
 .icon-picker{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin:4px 0 14px; }
-.icon-picker button{ aspect-ratio:1; border:1px solid var(--hair); border-radius:8px; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#555; }
+.icon-picker button{ aspect-ratio:1; border:1px solid var(--hair); border-radius:8px; background:var(--ink2); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--mute); }
 .icon-picker button svg{ width:16px; height:16px; }
-.icon-picker button.on{ background:var(--paper); color:#fff; border-color:var(--paper); }
+.icon-picker button.on{ background:var(--chrome-dark); color:#fff; border-color:var(--chrome-dark); }
 
 .cms-panel-backdrop{ position:fixed; inset:0; background:rgba(20,22,26,.35); display:none; z-index:300; }
 .cms-panel-backdrop.open{ display:block; }
-.cms-panel{ position:fixed; top:0; right:0; height:100%; width:320px; background:#fff; box-shadow:-10px 0 30px rgba(0,0,0,.15); z-index:301; padding:24px; overflow-y:auto; transform:translateX(100%); transition:.25s; }
+.cms-panel{ position:fixed; top:0; right:0; height:100%; width:320px; background:var(--ink2); box-shadow:-10px 0 30px rgba(0,0,0,.15); z-index:301; padding:24px; overflow-y:auto; transform:translateX(100%); transition:.25s; }
 .cms-panel.open{ transform:translateX(0); }
 .cms-panel h4{ font-size:15px; font-weight:800; margin-bottom:4px; }
 .cms-panel .sub{ font-size:12px; color:var(--mute); margin-bottom:18px; }
 .cms-panel label{ display:block; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); margin:16px 0 6px; }
 .cms-panel input[type=text], .cms-panel textarea{ width:100%; padding:9px 10px; border:1px solid var(--hair); border-radius:6px; font-size:13.5px; font-family:inherit; }
 .cms-panel textarea{ min-height:70px; resize:vertical; }
-.cms-panel .go-btn{ width:100%; margin-top:20px; padding:11px; border-radius:8px; border:none; background:var(--paper); color:#fff; font-weight:700; font-size:13.5px; cursor:pointer; }
+.cms-panel .go-btn{ width:100%; margin-top:20px; padding:11px; border-radius:8px; border:none; background:var(--chrome-dark); color:#fff; font-weight:700; font-size:13.5px; cursor:pointer; }
 .cms-panel .danger-btn{ width:100%; margin-top:10px; padding:11px; border-radius:8px; border:1px solid #E2A79C; background:#FBEDEA; color:var(--danger); font-weight:700; font-size:13px; cursor:pointer; }
+[data-theme="dark"] .cms-panel .danger-btn{ background:#3A1E1A; border-color:#5A3028; }
 .cms-panel .close-btn{ position:absolute; top:16px; right:16px; background:none; border:none; font-size:16px; cursor:pointer; color:var(--mute); }
-.cms-section-gear{ display:none; position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.9); border:1px solid var(--hair); align-items:center; justify-content:center; cursor:pointer; font-size:13px; z-index:12; }
+.cms-section-gear{ display:none; position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.9); color:var(--chrome-dark); border:1px solid var(--hair); align-items:center; justify-content:center; cursor:pointer; font-size:13px; z-index:12; }
 body.cms-edit .cms-section-shell:hover .cms-section-gear{ display:flex; }
 .cms-section-shell{ position:relative; }
 
-.cms-hidden-drawer{ position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--hair); z-index:260; padding:16px 24px; display:none; max-height:40vh; overflow-y:auto; box-shadow:0 -10px 30px rgba(0,0,0,.1); }
+.cms-hidden-drawer{ position:fixed; bottom:0; left:0; right:0; background:var(--ink2); border-top:1px solid var(--hair); z-index:260; padding:16px 24px; display:none; max-height:40vh; overflow-y:auto; box-shadow:0 -10px 30px rgba(0,0,0,.1); }
 .cms-hidden-drawer.open{ display:block; }
 .cms-hidden-drawer h4{ font-size:14px; margin-bottom:10px; }

@@ -113,3 +113,16 @@ export async function getAnalyticsSummary(daysBack = 30) {
     daysBack,
   };
 }
+
+export async function resetAnalytics() {
+  // Supabase requires an explicit filter on delete — this matches every row
+  // via a condition that's always true for a valid uuid primary key.
+  const { error } = await supabase.from('analytics_events').delete().not('id', 'is', null);
+  if (error) throw error;
+}
+
+export async function getAllAnalyticsEvents() {
+  const { data, error } = await supabase.from('analytics_events').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return data;
+}

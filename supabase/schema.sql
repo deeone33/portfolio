@@ -166,6 +166,7 @@ create policy "Admins can update quote requests" on quote_requests for update us
 create policy "Customers read own orders" on orders for select using (auth.uid() = user_id or public.is_admin());
 create policy "Customers create their own orders" on orders for insert with check (auth.uid() = user_id);
 create policy "Admins update orders" on orders for update using (public.is_admin());
+create policy "Admins delete orders" on orders for delete using (public.is_admin());
 
 -- ---- order_files: visible to the order's owner + admins; admins upload deliverables, the owner can also upload their own files ----
 create policy "Order owner and admins read files" on order_files for select using (
@@ -232,6 +233,7 @@ create table analytics_events (
 alter table analytics_events enable row level security;
 create policy "Anyone can log an analytics event" on analytics_events for insert with check (true);
 create policy "Only admins can read analytics" on analytics_events for select using (public.is_admin());
+create policy "Only admins can delete analytics" on analytics_events for delete using (public.is_admin());
 
 -- ============================================================
 -- CHAT
@@ -254,6 +256,7 @@ alter table chat_sessions enable row level security;
 create policy "Visitor and admins read own session" on chat_sessions for select using (visitor_id = auth.uid() or public.is_admin());
 create policy "Visitor creates own session" on chat_sessions for insert with check (visitor_id = auth.uid());
 create policy "Visitor and admins update own session" on chat_sessions for update using (visitor_id = auth.uid() or public.is_admin());
+create policy "Only admins can delete chat sessions" on chat_sessions for delete using (public.is_admin());
 
 create table chat_messages (
   id uuid primary key default gen_random_uuid(),
