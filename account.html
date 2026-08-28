@@ -6,30 +6,97 @@
 <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('fieldnote_theme') || 'light');</script>
 <link rel="stylesheet" href="assets/styles.css?v3">
 <style>
-  .order-card{border:1px solid var(--hair); border-radius:14px; padding:24px; margin-bottom:16px; background:var(--ink2);}
-  .order-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;}
-  .order-top h3{font-size:18px; font-weight:700;}
-  .order-meta{font-size:12.5px; color:var(--mute); margin-top:4px;}
-  .file-row{display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#fff; border:1px solid var(--hair); border-radius:8px; margin-top:8px; font-size:13px;}
-  .file-row a{font-weight:700; color:var(--coral);}
-  .comment{padding:10px 0; border-top:1px solid var(--hair); font-size:13.5px;}
-  .comment .who{font-weight:700; font-size:12px; color:var(--mute); margin-bottom:2px;}
-  .comment-box{display:flex; gap:8px; margin-top:12px;}
-  .comment-box input{flex:1;}
+  .acct-wrap{ max-width:880px; margin:0 auto; padding:40px 44px 80px; }
+  .acct-section{ background:var(--ink2); border:1px solid var(--hair); border-radius:16px; padding:28px; margin-bottom:24px; }
+  .acct-section h2{ font-size:18px; font-weight:800; margin-bottom:4px; }
+  .acct-section .sub{ font-size:13px; color:var(--mute); margin-bottom:20px; }
+  .acct-row{ display:flex; gap:12px; margin-bottom:12px; }
+  .acct-row > *{ flex:1; }
+  .acct-actions{ display:flex; gap:10px; margin-top:14px; }
+
+  .addon-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:12px; }
+  .addon-card{ border:1px solid var(--hair); border-radius:12px; padding:16px; background:#fff; }
+  [data-theme="dark"] .addon-card{ background:var(--ink); }
+  .addon-card h4{ font-size:14.5px; font-weight:700; }
+  .addon-card .price{ font-size:20px; font-weight:800; margin:6px 0 10px; }
+  .addon-card button{ width:100%; padding:9px; border-radius:100px; border:none; background:var(--paper); color:var(--ink); font-weight:700; font-size:13px; cursor:pointer; transition:.15s ease; }
+  .addon-card button:hover{ background:var(--coral); color:var(--oncoral); }
+
+  .order-card{ border:1px solid var(--hair); border-radius:16px; padding:26px; margin-bottom:18px; background:var(--ink2); }
+  .order-top{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; gap:12px; }
+  .order-top h3{ font-size:19px; font-weight:800; }
+  .order-meta{ font-size:12.5px; color:var(--mute); margin-top:4px; }
+  .order-price{ font-size:22px; font-weight:800; margin-top:14px; }
+
+  .stepper{ display:flex; align-items:center; margin:20px 0 6px; }
+  .stepper .stage{ flex:1; text-align:center; position:relative; }
+  .stepper .stage .dot{ width:26px; height:26px; border-radius:50%; background:var(--ink); border:2px solid var(--hair); display:flex; align-items:center; justify-content:center; margin:0 auto 6px; font-size:11px; font-weight:800; color:var(--mute); position:relative; z-index:2; }
+  .stepper .stage.done .dot{ background:var(--coral); border-color:var(--coral); color:var(--oncoral); }
+  .stepper .stage.active .dot{ border-color:var(--coral); color:var(--coral); }
+  .stepper .stage .label{ font-size:11px; font-weight:600; color:var(--mute); }
+  .stepper .stage.done .label, .stepper .stage.active .label{ color:var(--paper); }
+  .stepper .line{ position:absolute; top:13px; left:-50%; width:100%; height:2px; background:var(--hair); z-index:1; }
+  .stepper .stage:first-child .line{ display:none; }
+  .stepper .stage.done .line{ background:var(--coral); }
+  .cancelled-badge{ display:inline-block; margin:16px 0 6px; padding:8px 14px; border-radius:8px; background:#FBEDEA; color:var(--danger); font-size:13px; font-weight:700; }
+
+  .file-group-label{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); margin:16px 0 6px; }
+  .file-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#fff; border:1px solid var(--hair); border-radius:8px; margin-top:6px; font-size:13px; }
+  [data-theme="dark"] .file-row{ background:var(--ink); }
+  .file-row a{ font-weight:700; color:var(--coral); cursor:pointer; }
+  .upload-row{ margin-top:8px; }
+  .upload-row input[type=file]{ font-size:12.5px; }
+
+  .activity{ margin-top:18px; }
+  .activity-item{ padding:10px 0; border-top:1px solid var(--hair); font-size:13.5px; }
+  .activity-item .who{ font-weight:700; font-size:12px; color:var(--mute); margin-bottom:2px; }
+  .comment-box{ display:flex; gap:8px; margin-top:12px; }
+  .comment-box input{ flex:1; }
 </style>
 </head>
 <body>
 <div id="site-header"></div>
 
-<div class="wrap" style="padding-bottom:70px;">
+<div class="acct-wrap">
   <section class="page-hero" style="padding-bottom:10px;">
     <h1 id="greeting">My account</h1>
-    <p>Your orders, delivered files, and project comments — all in one place.</p>
+    <p>Your project, delivered files, add-ons, and account settings — all in one place.</p>
   </section>
 
   <div id="banner"></div>
-  <div id="ordersList" style="margin-top:20px;"></div>
-  <div id="emptyState" style="display:none; text-align:center; padding:60px 0;">
+
+  <div class="acct-section">
+    <h2>Account settings</h2>
+    <div class="sub" id="acctEmail"></div>
+    <div class="acct-row">
+      <div>
+        <label class="field-label">Full name</label>
+        <input type="text" id="fullNameInput">
+      </div>
+    </div>
+    <div class="acct-actions">
+      <button class="btn-secondary" onclick="saveName()">Save name</button>
+      <button class="btn-secondary" onclick="togglePasswordForm()">Change password</button>
+    </div>
+    <div id="passwordForm" style="display:none; margin-top:16px;">
+      <label class="field-label">New password</label>
+      <input type="password" id="newPassword">
+      <div class="acct-actions">
+        <button class="btn-primary" onclick="savePassword()">Update password</button>
+      </div>
+    </div>
+    <div id="acctMsg" style="margin-top:12px;"></div>
+  </div>
+
+  <div class="acct-section">
+    <h2>Add services</h2>
+    <div class="sub">Already have a project with us? Add extras any time — these go through the same checkout as your original order.</div>
+    <div class="addon-grid" id="addonGrid"></div>
+  </div>
+
+  <h2 style="font-size:20px; font-weight:800; margin-bottom:14px;">My orders</h2>
+  <div id="ordersList"></div>
+  <div id="emptyState" style="display:none; text-align:center; padding:50px 0;">
     <p style="color:var(--mute); margin-bottom:16px;">No orders yet.</p>
     <a href="pricing.html" class="btn-primary">See packages</a>
   </div>
@@ -37,10 +104,25 @@
 
 <div id="site-footer"></div>
 
+<div class="modal-backdrop" id="addonModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('addonModal')">✕</button>
+    <h3 style="font-size:19px; font-weight:800; margin-bottom:6px;" id="addonModalTitle">Add service</h3>
+    <p style="font-size:13px; color:var(--mute); margin-bottom:14px;">Which project is this for?</p>
+    <select id="addonOrderSelect" style="margin-bottom:14px;"></select>
+    <button class="btn-primary" style="width:100%;" id="addonProceedBtn">Continue to payment</button>
+    <div id="addonError" class="form-error" style="display:none;"></div>
+  </div>
+</div>
+
 <script type="module">
   import { renderHeader, renderFooter } from './assets/site-chrome.js?v3';
+  import { supabase } from './shared/supabaseClient.js?v3';
   import { requireLogin } from './shared/auth.js?v3';
-  import { getMyOrders, postComment, getDownloadUrl, formatMoney } from './shared/orders.js?v3';
+  import {
+    getMyOrders, postComment, getDownloadUrl, formatMoney, uploadCustomerFile,
+    ADDONS, startAddonCheckout, progressStage, PROGRESS_STAGES
+  } from './shared/orders.js?v3';
 
   renderHeader('account.html');
   renderFooter();
@@ -49,11 +131,35 @@
   if (!user) throw new Error('redirecting to login');
 
   document.getElementById('greeting').textContent = `Hi${user.user_metadata?.full_name ? ', ' + user.user_metadata.full_name : ''}.`;
+  document.getElementById('acctEmail').textContent = user.email;
+  document.getElementById('fullNameInput').value = user.user_metadata?.full_name || '';
 
   const params = new URLSearchParams(window.location.search);
   const banner = document.getElementById('banner');
   if (params.get('paid')) banner.innerHTML = `<div class="form-success">Payment received — thanks! We'll be in touch shortly.</div>`;
   if (params.get('cancelled')) banner.innerHTML = `<div class="form-error">Checkout was cancelled — no charge was made.</div>`;
+
+  window.saveName = async function(){
+    const msg = document.getElementById('acctMsg');
+    const { error } = await supabase.auth.updateUser({ data: { full_name: document.getElementById('fullNameInput').value } });
+    msg.innerHTML = error
+      ? `<div class="form-error">${error.message}</div>`
+      : `<div class="form-success">Name updated.</div>`;
+  };
+  window.togglePasswordForm = function(){
+    const el = document.getElementById('passwordForm');
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  };
+  window.savePassword = async function(){
+    const msg = document.getElementById('acctMsg');
+    const pw = document.getElementById('newPassword').value;
+    if (pw.length < 6) { msg.innerHTML = `<div class="form-error">Password should be at least 6 characters.</div>`; return; }
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    msg.innerHTML = error
+      ? `<div class="form-error">${error.message}</div>`
+      : `<div class="form-success">Password updated.</div>`;
+    document.getElementById('newPassword').value = '';
+  };
 
   let orders = [];
   try {
@@ -62,52 +168,83 @@
     console.error(err);
     banner.innerHTML = `<div class="form-error">Couldn't load your orders: ${err.message}</div>`;
   }
-  const listEl = document.getElementById('ordersList');
 
+  const listEl = document.getElementById('ordersList');
   if (!orders.length) {
     document.getElementById('emptyState').style.display = 'block';
   } else {
     listEl.innerHTML = orders.map(o => renderOrder(o)).join('');
-    orders.forEach(o => {
-      const btn = document.getElementById(`send-${o.id}`);
-      if (btn) btn.addEventListener('click', () => sendComment(o.id));
+    bindOrderEvents();
+  }
+
+  function renderOrder(o){
+    const staffFiles = (o.order_files || []).filter(f => f.uploaded_by_role !== 'customer');
+    const myFiles = (o.order_files || []).filter(f => f.uploaded_by_role === 'customer');
+    const comments = (o.order_comments || []).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    const stage = progressStage(o.status);
+
+    const stepperHtml = o.status === 'cancelled'
+      ? `<div class="cancelled-badge">Cancelled</div>`
+      : `<div class="stepper">${PROGRESS_STAGES.map((label, i) => `
+          <div class="stage ${i < stage ? 'done' : i === stage ? 'active' : ''}">
+            <div class="line"></div>
+            <div class="dot">${i < stage ? '✓' : i+1}</div>
+            <div class="label">${label}</div>
+          </div>`).join('')}</div>`;
+
+    return `
+      <div class="order-card" data-order="${o.id}">
+        <div class="order-top">
+          <div>
+            <h3>${escapeHtml(o.plan_label)}</h3>
+            <div class="order-meta">Ordered ${new Date(o.created_at).toLocaleDateString()} · <span class="status-badge status-${o.status}">${o.status.replace('_',' ')}</span></div>
+          </div>
+        </div>
+        ${stepperHtml}
+        <div class="order-price">${formatMoney(o.price_cents, o.currency)}</div>
+        ${o.notes ? `<p style="font-size:13px; color:var(--mute); margin-top:10px;">"${escapeHtml(o.notes)}"</p>` : ''}
+
+        <div class="file-group-label">Delivered by Fieldnote</div>
+        ${staffFiles.length ? staffFiles.map(f => `<div class="file-row"><span>${escapeHtml(f.file_name)}</span><a class="dl-link" data-path="${f.file_path}">Download</a></div>`).join('') : `<div style="font-size:12.5px;color:var(--mute);">Nothing delivered yet.</div>`}
+
+        <div class="file-group-label">Your uploads</div>
+        ${myFiles.length ? myFiles.map(f => `<div class="file-row"><span>${escapeHtml(f.file_name)}</span><a class="dl-link" data-path="${f.file_path}">Download</a></div>`).join('') : `<div style="font-size:12.5px;color:var(--mute);">Send us logos, content, or reference files here.</div>`}
+        <div class="upload-row"><input type="file" data-upload="${o.id}"></div>
+
+        <div class="activity">
+          <div class="file-group-label">Activity</div>
+          ${comments.length ? comments.map(c => `<div class="activity-item"><div class="who">${c.author_role === 'staff' ? 'Fieldnote' : 'You'} · ${new Date(c.created_at).toLocaleDateString()}</div>${escapeHtml(c.body)}</div>`).join('') : `<div style="font-size:12.5px;color:var(--mute); padding-top:8px;">No comments yet.</div>`}
+          <div class="comment-box">
+            <input type="text" id="input-${o.id}" placeholder="Write a comment...">
+            <button class="btn-secondary" data-send="${o.id}">Send</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function bindOrderEvents(){
+    document.querySelectorAll('[data-send]').forEach(btn => {
+      btn.addEventListener('click', () => sendComment(btn.dataset.send));
     });
     document.querySelectorAll('.dl-link').forEach(a => {
-      a.addEventListener('click', async (e) => {
-        e.preventDefault();
+      a.addEventListener('click', async () => {
         const url = await getDownloadUrl(a.dataset.path);
         window.open(url, '_blank');
       });
     });
-  }
-
-  function renderOrder(o){
-    const files = (o.order_files || []);
-    const comments = (o.order_comments || []).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-    return `
-      <div class="order-card">
-        <div class="order-top">
-          <div>
-            <h3>${o.plan_label}</h3>
-            <div class="order-meta">Ordered ${new Date(o.created_at).toLocaleDateString()} · ${formatMoney(o.price_cents, o.currency)}</div>
-          </div>
-          <span class="status-badge status-${o.status}">${o.status.replace('_',' ')}</span>
-        </div>
-        ${o.notes ? `<p style="font-size:13px; color:var(--mute); margin-top:8px;">"${escapeHtml(o.notes)}"</p>` : ''}
-
-        ${files.length ? `<div style="margin-top:14px;"><div class="order-meta" style="margin-bottom:4px;">Delivered files</div>
-          ${files.map(f => `<div class="file-row"><span>${escapeHtml(f.file_name)}</span><a href="#" class="dl-link" data-path="${f.file_path}">Download</a></div>`).join('')}
-        </div>` : ''}
-
-        <div style="margin-top:16px;">
-          <div class="order-meta" style="margin-bottom:4px;">Comments</div>
-          ${comments.length ? comments.map(c => `<div class="comment"><div class="who">${c.author_role === 'staff' ? 'Fieldnote' : 'You'} · ${new Date(c.created_at).toLocaleDateString()}</div>${escapeHtml(c.body)}</div>`).join('') : `<div style="font-size:13px;color:var(--mute);">No comments yet.</div>`}
-          <div class="comment-box">
-            <input type="text" id="input-${o.id}" placeholder="Write a comment...">
-            <button class="btn-secondary" id="send-${o.id}">Send</button>
-          </div>
-        </div>
-      </div>`;
+    document.querySelectorAll('[data-upload]').forEach(inp => {
+      inp.addEventListener('change', async () => {
+        const orderId = inp.dataset.upload;
+        const file = inp.files[0];
+        if (!file) return;
+        try {
+          await uploadCustomerFile(orderId, file, user.id);
+          location.reload();
+        } catch (err) {
+          alert('Upload failed: ' + err.message);
+        }
+      });
+    });
   }
 
   async function sendComment(orderId){
@@ -121,8 +258,47 @@
 
   function escapeHtml(str){
     const d = document.createElement('div');
-    d.textContent = str;
+    d.textContent = str || '';
     return d.innerHTML;
+  }
+
+  document.getElementById('addonGrid').innerHTML = Object.entries(ADDONS).map(([key, a]) => `
+    <div class="addon-card">
+      <h4>${a.label}</h4>
+      <div class="price">${formatMoney(a.price_cents, a.currency)}</div>
+      <button onclick="openAddonModal('${key}')">Add to project</button>
+    </div>`).join('');
+
+  window.openAddonModal = function(addonKey){
+    const addon = ADDONS[addonKey];
+    document.getElementById('addonModalTitle').textContent = 'Add: ' + addon.label;
+    const sel = document.getElementById('addonOrderSelect');
+    if (orders.length) {
+      sel.innerHTML = orders.map(o => `<option value="${o.id}">${escapeHtml(o.plan_label)} — ${new Date(o.created_at).toLocaleDateString()}</option>`).join('');
+      sel.style.display = 'block';
+    } else {
+      sel.innerHTML = '';
+      sel.style.display = 'none';
+    }
+    document.getElementById('addonProceedBtn').onclick = () => proceedAddon(addonKey);
+    document.getElementById('addonError').style.display = 'none';
+    document.getElementById('addonModal').classList.add('open');
+  };
+  function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+  window.closeModal = closeModal;
+
+  async function proceedAddon(addonKey){
+    const errEl = document.getElementById('addonError');
+    errEl.style.display = 'none';
+    const sel = document.getElementById('addonOrderSelect');
+    const chosen = orders.find(o => o.id === sel.value);
+    const note = chosen ? `Add-on for: ${chosen.plan_label} (ordered ${new Date(chosen.created_at).toLocaleDateString()})` : null;
+    try {
+      await startAddonCheckout(user.id, addonKey, note);
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+    }
   }
 </script>
 </body>

@@ -1,6 +1,8 @@
 import { supabase } from '../shared/supabaseClient.js?v3';
 import { isAdmin as checkIsAdmin } from '../shared/auth.js?v3';
 import { getTheme, toggleTheme, themeIcon } from '../shared/theme.js?v3';
+import { trackPageview, trackScrollDepth, initLoginTracking } from '../shared/analytics.js?v3';
+import { mountChatWidget } from '../shared/chat.js?v3';
 
 const PERSON_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>';
 
@@ -51,6 +53,13 @@ export async function renderHeader(activePath) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const admin = user ? await checkIsAdmin(user.id) : false;
+
+  if (!admin) {
+    trackPageview(activePath);
+    trackScrollDepth(activePath);
+    mountChatWidget();
+  }
+  initLoginTracking();
 
   const navHtml = NAV_LINKS.map(l =>
     `<a class="link ${activePath === l.href ? 'current' : ''}" href="${l.href}">${t(l.label)}</a>`

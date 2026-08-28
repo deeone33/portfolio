@@ -343,7 +343,7 @@
 </div>
 
 <script>
-let supabase, checkIsAdmin, themeMod;
+let supabase, checkIsAdmin, themeMod, analyticsMod;
 let currentUser = null;
 /* =========================================================================
    CONTENT MODEL
@@ -1655,6 +1655,8 @@ async function savePageContent(pageSlug, content){
   const clientMod = await import('./shared/supabaseClient.js?v3');
   const authMod = await import('./shared/auth.js?v3');
   themeMod = await import('./shared/theme.js?v3');
+  analyticsMod = await import('./shared/analytics.js?v3');
+  const chatMod = await import('./shared/chat.js?v3');
   supabase = clientMod.supabase;
   checkIsAdmin = authMod.isAdmin;
 
@@ -1683,6 +1685,12 @@ async function savePageContent(pageSlug, content){
       document.getElementById('adminbar').classList.add('on');
     }
   }
+  if (!isAdmin) {
+    analyticsMod.trackPageview('index.html');
+    analyticsMod.trackScrollDepth('index.html');
+    chatMod.mountChatWidget();
+  }
+  analyticsMod.initLoginTracking();
   render();
 })();
 </script>

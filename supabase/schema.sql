@@ -103,6 +103,7 @@ create table order_files (
   file_path text not null,            -- path inside the 'deliverables' storage bucket
   file_name text not null,
   uploaded_by uuid references auth.users(id),
+  uploaded_by_role text not null default 'staff', -- 'staff' | 'customer' — lets the UI show "delivered by us" vs "your upload" separately
   created_at timestamptz default now()
 );
 
@@ -166,11 +167,15 @@ create policy "Customers read own orders" on orders for select using (auth.uid()
 create policy "Customers create their own orders" on orders for insert with check (auth.uid() = user_id);
 create policy "Admins update orders" on orders for update using (public.is_admin());
 
--- ---- order_files: visible to the order's owner + admins; only admins upload ----
+-- ---- order_files: visible to the order's owner + admins; admins upload deliverables, the owner can also upload their own files ----
 create policy "Order owner and admins read files" on order_files for select using (
   exists(select 1 from orders where orders.id = order_files.order_id and (orders.user_id = auth.uid() or public.is_admin()))
 );
 create policy "Admins insert files" on order_files for insert with check (public.is_admin());
+create policy "Order owner can insert their own upload record" on order_files for insert with check (
+  uploaded_by_role = 'customer'
+  and exists(select 1 from orders where orders.id = order_files.order_id and orders.user_id = auth.uid())
+);
 create policy "Admins delete files" on order_files for delete using (public.is_admin());
 
 -- ---- order_comments: visible to the order's owner + admins; both can post ----
@@ -181,7 +186,7 @@ create policy "Order owner and admins post comments" on order_comments for inser
   exists(select 1 from orders where orders.id = order_comments.order_id and (orders.user_id = auth.uid() or public.is_admin()))
 );
 
--- ---- storage: order owner + admins can read their deliverable files ----
+-- ---- storage: order owner + admins can read; admins upload deliverables, the owner can upload into their own order's folder ----
 create policy "Order owner and admins read deliverables"
   on storage.objects for select
   using (
@@ -196,10 +201,82 @@ create policy "Order owner and admins read deliverables"
 create policy "Admins upload deliverables"
   on storage.objects for insert
   with check (bucket_id = 'deliverables' and public.is_admin());
+create policy "Order owner can upload into their own order folder"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'deliverables'
+    and exists(
+      select 1 from orders
+      where orders.id::text = split_part(storage.objects.name, '/', 1)
+      and orders.user_id = auth.uid()
+    )
+  );
+
+-- ============================================================
+-- ANALYTICS
+-- Lightweight event log: pageviews, scroll-depth milestones, and login
+-- events. Anyone (including anonymous visitors) can write an event — that's
+-- necessary for tracking to work at all before someone's logged in — but
+-- only admins can ever read this table back.
+-- ============================================================
+create table analytics_events (
+  id uuid primary key default gen_random_uuid(),
+  session_id text not null,           -- random id stored in the visitor's sessionStorage, not tied to identity
+  user_id uuid references auth.users(id), -- set only if they happen to be logged in
+  event_type text not null,           -- 'pageview' | 'scroll_depth' | 'login'
+  page_path text,
+  scroll_percent integer,             -- only set for 'scroll_depth' events: 25 / 50 / 75 / 100
+  referrer text,
+  created_at timestamptz default now()
+);
+alter table analytics_events enable row level security;
+create policy "Anyone can log an analytics event" on analytics_events for insert with check (true);
+create policy "Only admins can read analytics" on analytics_events for select using (public.is_admin());
+
+-- ============================================================
+-- CHAT
+-- Every visitor — logged in or fully anonymous — needs a real auth.uid()
+-- for this to be secure: without one, RLS can't tell one visitor's private
+-- messages apart from another's. Anonymous visitors get one via Supabase's
+-- built-in Anonymous Sign-In (see setup step below); logged-in customers
+-- just use their real account id.
+-- ============================================================
+create table chat_sessions (
+  id uuid primary key default gen_random_uuid(),
+  visitor_id uuid references auth.users(id) not null,
+  visitor_name text,
+  visitor_email text, -- optional; mainly for anonymous visitors who left a message while no admin was online, so there's a way to follow up
+  status text not null default 'open', -- 'open' | 'closed'
+  created_at timestamptz default now(),
+  last_message_at timestamptz default now()
+);
+alter table chat_sessions enable row level security;
+create policy "Visitor and admins read own session" on chat_sessions for select using (visitor_id = auth.uid() or public.is_admin());
+create policy "Visitor creates own session" on chat_sessions for insert with check (visitor_id = auth.uid());
+create policy "Visitor and admins update own session" on chat_sessions for update using (visitor_id = auth.uid() or public.is_admin());
+
+create table chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid references chat_sessions(id) on delete cascade not null,
+  sender_role text not null, -- 'visitor' | 'admin'
+  body text not null,
+  created_at timestamptz default now()
+);
+alter table chat_messages enable row level security;
+create policy "Visitor and admins read session messages" on chat_messages for select using (
+  exists(select 1 from chat_sessions where chat_sessions.id = chat_messages.session_id and (chat_sessions.visitor_id = auth.uid() or public.is_admin()))
+);
+create policy "Visitor and admins send session messages" on chat_messages for insert with check (
+  exists(select 1 from chat_sessions where chat_sessions.id = chat_messages.session_id and (chat_sessions.visitor_id = auth.uid() or public.is_admin()))
+);
 
 -- ============================================================
 -- SETUP STEPS (do these after running this file)
 -- ============================================================
+-- 0. Enable Anonymous Sign-Ins: Supabase Dashboard > Authentication >
+--    Sign In / Providers > toggle on "Anonymous Sign-Ins". Required for
+--    chat to work for visitors who aren't logged in.
+--
 -- 1. insert into sites (slug) values ('fieldnote');
 --
 -- 2. Enable Google as an auth provider:

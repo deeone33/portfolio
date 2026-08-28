@@ -2,25 +2,52 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Orders — Fieldnote Admin</title>
+<title>Admin — Fieldnote</title>
 <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('fieldnote_theme') || 'light');</script>
 <link rel="stylesheet" href="assets/styles.css?v3">
 <style>
-  .wrap{max-width:900px;}
-  .order-card{border:1px solid var(--hair); border-radius:14px; padding:24px; margin-bottom:16px; background:var(--ink2);}
-  .order-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; gap:16px;}
-  .order-top h3{font-size:18px; font-weight:700;}
-  .order-meta{font-size:12.5px; color:var(--mute); margin-top:4px;}
-  .status-select{padding:8px 12px; border-radius:8px; border:1px solid var(--hair); font-size:13px; font-family:inherit; background:#fff;}
-  .file-row{display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:#fff; border:1px solid var(--hair); border-radius:8px; margin-top:8px; font-size:13px;}
-  .upload-row{display:flex; gap:8px; margin-top:10px; align-items:center;}
-  .comment{padding:10px 0; border-top:1px solid var(--hair); font-size:13.5px;}
-  .comment .who{font-weight:700; font-size:12px; color:var(--mute); margin-bottom:2px;}
-  .comment-box{display:flex; gap:8px; margin-top:12px;}
+  .wrap{max-width:1040px;}
+  .stat-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin:18px 0 22px; }
+  .stat-card{ border:1px solid var(--hair); border-radius:12px; padding:14px 16px; background:var(--ink2); }
+  .stat-card .num{ font-size:22px; font-weight:800; }
+  .stat-card .lbl{ font-size:11.5px; color:var(--mute); font-weight:600; text-transform:uppercase; letter-spacing:.03em; margin-top:2px; }
+
+  .tab-row{ display:flex; gap:6px; margin-bottom:18px; border-bottom:1px solid var(--hair); }
+  .tab-row button{ padding:10px 16px; border:none; background:none; font-size:13.5px; font-weight:700; cursor:pointer; color:var(--mute); border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tab-row button.on{ color:var(--paper); border-bottom-color:var(--coral); }
+  .tab-panel{ display:none; }
+  .tab-panel.on{ display:block; }
+
+  .order-card{border:1px solid var(--hair); border-radius:12px; padding:16px 18px; margin-bottom:12px; background:var(--ink2);}
+  .order-top{display:flex; justify-content:space-between; align-items:flex-start; gap:14px;}
+  .order-top h3{font-size:15.5px; font-weight:700;}
+  .order-meta{font-size:12px; color:var(--mute); margin-top:3px;}
+  .status-select{padding:6px 10px; border-radius:8px; border:1px solid var(--hair); font-size:12.5px; font-family:inherit; background:#fff;}
+  [data-theme="dark"] .status-select{background:var(--ink);}
+  .order-detail-toggle{ font-size:12px; font-weight:700; color:var(--coral); cursor:pointer; margin-top:8px; display:inline-block; }
+  .order-detail{ display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--hair); }
+  .order-detail.open{ display:block; }
+  .file-row{display:flex; justify-content:space-between; align-items:center; padding:7px 10px; background:#fff; border:1px solid var(--hair); border-radius:7px; margin-top:6px; font-size:12.5px;}
+  [data-theme="dark"] .file-row{background:var(--ink);}
+  .upload-row{display:flex; gap:8px; margin-top:8px; align-items:center;}
+  .comment{padding:8px 0; border-top:1px solid var(--hair); font-size:13px;}
+  .comment .who{font-weight:700; font-size:11.5px; color:var(--mute); margin-bottom:2px;}
+  .comment-box{display:flex; gap:8px; margin-top:10px;}
   .comment-box input{flex:1;}
-  .filter-bar{display:flex; gap:8px; margin:20px 0 10px; flex-wrap:wrap;}
-  .filter-bar button{padding:8px 14px; border-radius:100px; border:1px solid var(--hair); background:#fff; font-size:13px; cursor:pointer; font-weight:600;}
-  .filter-bar button.on{background:var(--paper); color:#fff; border-color:var(--paper);}
+  .filter-bar{display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;}
+  .filter-bar button{padding:6px 12px; border-radius:100px; border:1px solid var(--hair); background:#fff; font-size:12px; cursor:pointer; font-weight:600;}
+  [data-theme="dark"] .filter-bar button{background:var(--ink);}
+  .filter-bar button.on{background:var(--paper); color:var(--ink); border-color:var(--paper);}
+
+  .top-pages-row{ display:flex; justify-content:space-between; padding:9px 0; border-top:1px solid var(--hair); font-size:13.5px; }
+  .login-row{ display:flex; justify-content:space-between; padding:9px 0; border-top:1px solid var(--hair); font-size:13px; }
+  .login-row .who{ font-weight:600; }
+  .login-row .when{ color:var(--mute); font-size:12px; }
+  .scroll-bar-track{ background:var(--hair); border-radius:100px; height:6px; width:120px; overflow:hidden; }
+  .scroll-bar-fill{ background:var(--coral); height:100%; }
+  .analytics-card{ border:1px solid var(--hair); border-radius:12px; padding:18px 20px; background:var(--ink2); margin-bottom:16px; }
+  .analytics-card h3{ font-size:14.5px; font-weight:700; margin-bottom:4px; }
+  .analytics-empty{ font-size:12.5px; color:var(--mute); padding:14px 0; }
 </style>
 </head>
 <body>
@@ -29,29 +56,88 @@
 <div class="wrap" style="padding-bottom:70px;">
   <section class="page-hero" style="padding-bottom:0;">
     <div class="eyebrow">Staff only</div>
-    <h1>Orders</h1>
+    <h1>Backoffice</h1>
   </section>
 
-  <div class="filter-bar" id="filterBar"></div>
-  <div id="ordersList" style="margin-top:10px;"></div>
+  <div class="stat-row" id="statRow"></div>
+
+  <div class="tab-row">
+    <button data-tab="orders" class="on">Orders</button>
+    <button data-tab="analytics">Analytics</button>
+    <button data-tab="chat">Chat</button>
+  </div>
+
+  <div class="tab-panel on" id="panel-orders">
+    <div class="filter-bar" id="filterBar"></div>
+    <div id="ordersList"></div>
+  </div>
+
+  <div class="tab-panel" id="panel-analytics">
+    <div style="display:flex; gap:6px; margin-bottom:16px;">
+      <button class="range-btn" data-days="7">7 days</button>
+      <button class="range-btn on" data-days="30">30 days</button>
+      <button class="range-btn" data-days="90">90 days</button>
+    </div>
+    <div class="analytics-card">
+      <h3>Top pages</h3>
+      <div id="topPagesList"></div>
+    </div>
+    <div class="analytics-card">
+      <h3>How far people scroll</h3>
+      <div id="scrollDepthList"></div>
+    </div>
+    <div class="analytics-card">
+      <h3>Recent logins</h3>
+      <div id="loginsList"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="panel-chat">
+    <div style="display:flex; gap:16px; height:520px;">
+      <div style="width:220px; flex-shrink:0; border:1px solid var(--hair); border-radius:12px; overflow-y:auto; background:var(--ink2);" id="chatSessionList"></div>
+      <div style="flex:1; display:flex; flex-direction:column; border:1px solid var(--hair); border-radius:12px; background:var(--ink2); overflow:hidden;">
+        <div id="chatThread" style="flex:1; overflow-y:auto; padding:16px;"></div>
+        <div id="chatTypingPreview" style="display:none; padding:8px 16px; font-size:12.5px; color:var(--mute); font-style:italic; border-top:1px solid var(--hair);"></div>
+        <div style="display:flex; gap:8px; padding:12px; border-top:1px solid var(--hair);">
+          <input type="text" id="chatReplyInput" placeholder="Reply..." style="flex:1;">
+          <button class="btn-primary" id="chatReplyBtn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="site-footer"></div>
 
 <script type="module">
   import { renderHeader, renderFooter } from './assets/site-chrome.js?v3';
+  import { supabase } from './shared/supabaseClient.js?v3';
   import { requireAdmin } from './shared/auth.js?v3';
   import { getAllOrders, updateOrderStatus, postComment, uploadDeliverable, getDownloadUrl, formatMoney } from './shared/orders.js?v3';
+  import { getAnalyticsSummary } from './shared/analytics.js?v3';
+  import { announceAdminPresence, getOpenSessions, getMessages, sendMessage, subscribeToMessages, subscribeToTyping, closeSession } from './shared/chat.js?v3';
 
   renderHeader('admin-orders.html');
   renderFooter();
 
   const staffUser = await requireAdmin();
   if (!staffUser) throw new Error('redirecting');
+  announceAdminPresence();
 
   const STATUSES = ['pending_payment','paid','in_progress','delivered','cancelled'];
   let currentFilter = 'all';
   let allOrders = [];
+  let expandedOrders = new Set();
+
+  document.querySelectorAll('.tab-row button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-row button').forEach(b => b.classList.remove('on'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('on'));
+      btn.classList.add('on');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('on');
+      if (btn.dataset.tab === 'chat') loadChatSessions();
+    });
+  });
 
   document.getElementById('filterBar').innerHTML =
     `<button data-f="all" class="on">All</button>` +
@@ -61,55 +147,66 @@
       currentFilter = b.dataset.f;
       document.querySelectorAll('.filter-bar button').forEach(x => x.classList.remove('on'));
       b.classList.add('on');
-      draw();
+      drawOrders();
     });
   });
 
   async function load(){
     try {
       allOrders = await getAllOrders();
-      draw();
+      drawStats();
+      drawOrders();
     } catch (err) {
-      document.getElementById('ordersList').innerHTML =
-        `<div class="form-error">${err.message}</div>`;
+      document.getElementById('ordersList').innerHTML = `<div class="form-error">${err.message}</div>`;
       console.error(err);
     }
   }
-  function draw(){
+
+  function drawStats(){
+    const revenue = allOrders.filter(o => o.status !== 'pending_payment' && o.status !== 'cancelled')
+      .reduce((sum, o) => sum + o.price_cents, 0);
+    const pending = allOrders.filter(o => o.status === 'pending_payment').length;
+    document.getElementById('statRow').innerHTML = `
+      <div class="stat-card"><div class="num">${formatMoney(revenue, 'eur')}</div><div class="lbl">Revenue</div></div>
+      <div class="stat-card"><div class="num">${allOrders.length}</div><div class="lbl">Total orders</div></div>
+      <div class="stat-card"><div class="num">${pending}</div><div class="lbl">Awaiting payment</div></div>
+      <div class="stat-card" id="statPageviews"><div class="num">–</div><div class="lbl">Pageviews (30d)</div></div>
+      <div class="stat-card" id="statVisitors"><div class="num">–</div><div class="lbl">Visitors (30d)</div></div>
+    `;
+  }
+
+  function drawOrders(){
     const list = currentFilter === 'all' ? allOrders : allOrders.filter(o => o.status === currentFilter);
     const el = document.getElementById('ordersList');
     if (!list.length) { el.innerHTML = `<p style="color:var(--mute); padding:30px 0;">No orders in this view.</p>`; return; }
     el.innerHTML = list.map(o => renderOrder(o)).join('');
-    bindOrder(list);
+    bindOrder();
   }
 
   function renderOrder(o){
     const files = (o.order_files || []);
     const comments = (o.order_comments || []).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    const isOpen = expandedOrders.has(o.id);
     return `
       <div class="order-card" data-order="${o.id}">
         <div class="order-top">
           <div>
-            <h3>${o.plan_label} — ${escapeHtml(o.profiles?.full_name || o.profiles?.email || 'Unknown customer')}</h3>
-            <div class="order-meta">${escapeHtml(o.profiles?.email || '')} · Ordered ${new Date(o.created_at).toLocaleDateString()} · ${formatMoney(o.price_cents, o.currency)}</div>
+            <h3>${escapeHtml(o.plan_label)} — ${escapeHtml(o.profiles?.full_name || o.profiles?.email || 'Unknown customer')}</h3>
+            <div class="order-meta">${escapeHtml(o.profiles?.email || '')} · ${new Date(o.created_at).toLocaleDateString()} · ${formatMoney(o.price_cents, o.currency)}</div>
           </div>
           <select class="status-select" data-order="${o.id}">
             ${STATUSES.map(s => `<option value="${s}" ${o.status===s?'selected':''}>${s.replace('_',' ')}</option>`).join('')}
           </select>
         </div>
-        ${o.notes ? `<p style="font-size:13px; color:var(--mute); margin-top:8px;">"${escapeHtml(o.notes)}"</p>` : ''}
+        <span class="order-detail-toggle" data-toggle="${o.id}">${isOpen ? 'Hide details ▲' : `Details, files & comments (${files.length} files, ${comments.length} comments) ▾`}</span>
+        <div class="order-detail ${isOpen ? 'open' : ''}" id="detail-${o.id}">
+          ${o.notes ? `<p style="font-size:13px; color:var(--mute); margin-bottom:10px;">"${escapeHtml(o.notes)}"</p>` : ''}
+          <div class="order-meta" style="margin-bottom:4px;">Files</div>
+          ${files.length ? files.map(f => `<div class="file-row"><span>${escapeHtml(f.file_name)} ${f.uploaded_by_role==='customer' ? '<em style="color:var(--mute);">(from customer)</em>' : ''}</span><a href="#" class="dl-link" data-path="${f.file_path}" style="color:var(--coral); font-weight:700;">Download</a></div>`).join('') : `<div style="font-size:12.5px;color:var(--mute);">None yet.</div>`}
+          <div class="upload-row"><input type="file" data-upload="${o.id}"></div>
 
-        <div style="margin-top:14px;">
-          <div class="order-meta" style="margin-bottom:4px;">Deliverable files</div>
-          ${files.map(f => `<div class="file-row"><span>${escapeHtml(f.file_name)}</span><a href="#" class="dl-link" data-path="${f.file_path}" style="color:var(--coral); font-weight:700;">Download</a></div>`).join('')}
-          <div class="upload-row">
-            <input type="file" data-upload="${o.id}">
-          </div>
-        </div>
-
-        <div style="margin-top:16px;">
-          <div class="order-meta" style="margin-bottom:4px;">Comments</div>
-          ${comments.length ? comments.map(c => `<div class="comment"><div class="who">${c.author_role === 'staff' ? 'You (staff)' : 'Customer'} · ${new Date(c.created_at).toLocaleDateString()}</div>${escapeHtml(c.body)}</div>`).join('') : `<div style="font-size:13px;color:var(--mute);">No comments yet.</div>`}
+          <div class="order-meta" style="margin:14px 0 4px;">Comments</div>
+          ${comments.length ? comments.map(c => `<div class="comment"><div class="who">${c.author_role === 'staff' ? 'You (staff)' : 'Customer'} · ${new Date(c.created_at).toLocaleDateString()}</div>${escapeHtml(c.body)}</div>`).join('') : `<div style="font-size:12.5px;color:var(--mute);">None yet.</div>`}
           <div class="comment-box">
             <input type="text" data-comment-input="${o.id}" placeholder="Reply to the customer...">
             <button class="btn-secondary" data-comment-send="${o.id}">Send</button>
@@ -118,7 +215,14 @@
       </div>`;
   }
 
-  function bindOrder(list){
+  function bindOrder(){
+    document.querySelectorAll('[data-toggle]').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.dataset.toggle;
+        if (expandedOrders.has(id)) expandedOrders.delete(id); else expandedOrders.add(id);
+        drawOrders();
+      });
+    });
     document.querySelectorAll('.status-select').forEach(sel => {
       sel.addEventListener('change', async () => {
         await updateOrderStatus(sel.dataset.order, sel.value);
@@ -132,6 +236,7 @@
         const body = input.value.trim();
         if (!body) return;
         await postComment(orderId, staffUser.id, 'staff', body);
+        expandedOrders.add(orderId);
         await load();
       });
     });
@@ -141,6 +246,7 @@
         const file = inp.files[0];
         if (!file) return;
         await uploadDeliverable(orderId, file, staffUser.id);
+        expandedOrders.add(orderId);
         await load();
       });
     });
@@ -153,13 +259,150 @@
     });
   }
 
+  document.querySelectorAll('.range-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      loadAnalytics(parseInt(btn.dataset.days));
+    });
+  });
+
+  async function loadAnalytics(days){
+    try {
+      const summary = await getAnalyticsSummary(days);
+
+      const pvEl = document.getElementById('statPageviews');
+      const vEl = document.getElementById('statVisitors');
+      if (pvEl) pvEl.querySelector('.num').textContent = summary.totalPageviews;
+      if (vEl) vEl.querySelector('.num').textContent = summary.uniqueSessions;
+
+      document.getElementById('topPagesList').innerHTML = summary.topPages.length
+        ? summary.topPages.map(([path, count]) => `<div class="top-pages-row"><span>${escapeHtml(path)}</span><strong>${count}</strong></div>`).join('')
+        : `<div class="analytics-empty">No pageviews recorded yet.</div>`;
+
+      const scrollEntries = Object.entries(summary.scrollByPage);
+      document.getElementById('scrollDepthList').innerHTML = scrollEntries.length
+        ? scrollEntries.map(([path, d]) => {
+            const total = d.sessions.size || 1;
+            return `<div style="margin:10px 0;">
+              <div style="font-size:13px; font-weight:600; margin-bottom:6px;">${escapeHtml(path)}</div>
+              ${[25,50,75,100].map(t => `
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                  <span style="font-size:11.5px; color:var(--mute); width:40px;">${t}%</span>
+                  <div class="scroll-bar-track"><div class="scroll-bar-fill" style="width:${Math.round((d[t]/total)*100)}%;"></div></div>
+                  <span style="font-size:11.5px; color:var(--mute);">${d[t]}</span>
+                </div>`).join('')}
+            </div>`;
+          }).join('')
+        : `<div class="analytics-empty">No scroll data recorded yet.</div>`;
+
+      if (summary.recentLogins.length) {
+        const userIds = [...new Set(summary.recentLogins.map(l => l.user_id).filter(Boolean))];
+        let profileMap = {};
+        if (userIds.length) {
+          const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', userIds);
+          (profs || []).forEach(p => profileMap[p.id] = p);
+        }
+        document.getElementById('loginsList').innerHTML = summary.recentLogins.map(l => {
+          const p = profileMap[l.user_id];
+          const who = p ? (p.full_name || p.email) : 'Unknown';
+          return `<div class="login-row"><span class="who">${escapeHtml(who)}</span><span class="when">${new Date(l.created_at).toLocaleString()}</span></div>`;
+        }).join('');
+      } else {
+        document.getElementById('loginsList').innerHTML = `<div class="analytics-empty">No logins recorded yet.</div>`;
+      }
+    } catch (err) {
+      console.error(err);
+      document.getElementById('topPagesList').innerHTML = `<div class="form-error">Couldn't load analytics: ${err.message}</div>`;
+    }
+  }
+
   function escapeHtml(str){
     const d = document.createElement('div');
     d.textContent = str || '';
     return d.innerHTML;
   }
 
+  // ---------------- chat ----------------
+  let activeSessionId = null;
+  let unsubChatMessages = null;
+  let unsubChatTyping = null;
+
+  async function loadChatSessions(){
+    try {
+      const sessions = await getOpenSessions();
+      const listEl = document.getElementById('chatSessionList');
+      if (!sessions.length) { listEl.innerHTML = `<div class="analytics-empty" style="padding:16px;">No conversations yet.</div>`; return; }
+      listEl.innerHTML = sessions.map(s => {
+        const msgCount = (s.chat_messages || []).length;
+        const lastMsg = (s.chat_messages || []).slice(-1)[0];
+        const who = s.visitor_name || s.visitor_email || `Visitor ${s.id.slice(0,6)}`;
+        return `<div class="chat-session-row" data-session="${s.id}" style="padding:12px 14px; border-bottom:1px solid var(--hair); cursor:pointer; ${s.id===activeSessionId?'background:var(--hair);':''}">
+          <div style="font-size:13px; font-weight:700;">${escapeHtml(who)}</div>
+          <div style="font-size:11.5px; color:var(--mute); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${lastMsg ? escapeHtml(lastMsg.body) : 'No messages'} </div>
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.chat-session-row').forEach(row => {
+        row.addEventListener('click', () => selectChatSession(row.dataset.session));
+      });
+      if (!activeSessionId && sessions.length) selectChatSession(sessions[0].id);
+    } catch (err) {
+      document.getElementById('chatSessionList').innerHTML = `<div class="form-error" style="margin:12px;">${err.message}</div>`;
+    }
+  }
+
+  async function selectChatSession(sessionId){
+    activeSessionId = sessionId;
+    if (unsubChatMessages) unsubChatMessages();
+    if (unsubChatTyping) unsubChatTyping();
+    document.getElementById('chatTypingPreview').style.display = 'none';
+
+    const thread = document.getElementById('chatThread');
+    thread.innerHTML = '';
+    const messages = await getMessages(sessionId);
+    messages.forEach(renderChatMsg);
+    thread.scrollTop = thread.scrollHeight;
+
+    unsubChatMessages = subscribeToMessages(sessionId, (msg) => {
+      renderChatMsg(msg);
+      thread.scrollTop = thread.scrollHeight;
+      loadChatSessions(); // refresh preview text in the session list
+    });
+    // The actual live-typing-preview feature: shows what the visitor is
+    // typing before they hit send, updating on every keystroke.
+    unsubChatTyping = subscribeToTyping(sessionId, (text) => {
+      const preview = document.getElementById('chatTypingPreview');
+      if (text) { preview.style.display = 'block'; preview.textContent = `Typing: "${text}"`; }
+      else { preview.style.display = 'none'; }
+    });
+
+    document.querySelectorAll('.chat-session-row').forEach(row => {
+      row.style.background = row.dataset.session === sessionId ? 'var(--hair)' : '';
+    });
+  }
+
+  function renderChatMsg(msg){
+    const thread = document.getElementById('chatThread');
+    const el = document.createElement('div');
+    el.style.cssText = `margin-bottom:10px; max-width:80%; padding:8px 12px; border-radius:10px; font-size:13px; line-height:1.4; ${msg.sender_role === 'admin' ? 'background:var(--coral); color:var(--oncoral); margin-left:auto;' : 'background:#fff; border:1px solid var(--hair); margin-right:auto;'}`;
+    el.textContent = msg.body;
+    thread.appendChild(el);
+  }
+
+  document.getElementById('chatReplyBtn').addEventListener('click', sendChatReply);
+  document.getElementById('chatReplyInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChatReply(); });
+  async function sendChatReply(){
+    if (!activeSessionId) return;
+    const input = document.getElementById('chatReplyInput');
+    const body = input.value.trim();
+    if (!body) return;
+    input.value = '';
+    renderChatMsg({ sender_role: 'admin', body });
+    await sendMessage(activeSessionId, 'admin', body);
+  }
+
   load();
+  loadAnalytics(30);
 </script>
 </body>
 </html>

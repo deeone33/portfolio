@@ -104,6 +104,11 @@ textarea{min-height:100px; resize:vertical;}
 .status-in_progress{background:#E7ECFB; color:#3355D6;}
 .status-delivered{background:#E6F4EC; color:#1E6B3E;}
 .status-cancelled{background:#FBEDEA; color:var(--danger);}
+[data-theme="dark"] .status-pending_payment{background:#3A2E10; color:#E0B04E;}
+[data-theme="dark"] .status-paid{background:#0F2E28; color:#5CD9BE;}
+[data-theme="dark"] .status-in_progress{background:#1A2440; color:#8FA6E8;}
+[data-theme="dark"] .status-delivered{background:#123A24; color:#6ED99A;}
+[data-theme="dark"] .status-cancelled{background:#3A1E1A; color:var(--danger);}
 
 /* ---------- MODAL (login etc) ---------- */
 .modal-backdrop{position:fixed; inset:0; background:rgba(20,22,26,.45); display:none; align-items:center; justify-content:center; z-index:250;}
