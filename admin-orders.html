@@ -67,7 +67,7 @@
   <div class="tab-row">
     <button data-tab="orders" class="on">Orders</button>
     <button data-tab="analytics">Analytics</button>
-    <button data-tab="chat">Chat</button>
+    <button data-tab="chat">Chat <span id="chatBadge" style="display:none; background:var(--admin); color:#fff; border-radius:100px; font-size:10px; font-weight:700; padding:2px 6px; margin-left:4px;"></span></button>
   </div>
 
   <div class="tab-panel on" id="panel-orders">
@@ -131,7 +131,7 @@
   import { requireAdmin } from './shared/auth.js?v3';
   import { getAllOrders, updateOrderStatus, postComment, uploadDeliverable, getDownloadUrl, formatMoney, deleteOrder } from './shared/orders.js?v3';
   import { getAnalyticsSummary, resetAnalytics, getAllAnalyticsEvents } from './shared/analytics.js?v3';
-  import { announceAdminPresence, getOpenSessions, getMessages, sendMessage, subscribeToMessages, subscribeToTyping, closeSession, deleteSession, clearAllChatHistory } from './shared/chat.js?v3';
+  import { announceAdminPresence, getOpenSessions, getMessages, sendMessage, subscribeToMessages, subscribeToTyping, closeSession, deleteSession, clearAllChatHistory, subscribeAdminInbox } from './shared/chat.js?v3';
   import { arrayToCsv, downloadCsv } from './shared/csv.js?v3';
 
   renderHeader('admin-orders.html');
@@ -140,6 +140,25 @@
   const staffUser = await requireAdmin();
   if (!staffUser) throw new Error('redirecting');
   announceAdminPresence();
+
+  let unreadChatActivity = 0;
+  function bumpChatBadge(){
+    const onChatTab = document.getElementById('panel-chat').classList.contains('on');
+    if (onChatTab) return; // already looking at it — nothing to flag
+    unreadChatActivity++;
+    const badge = document.getElementById('chatBadge');
+    badge.textContent = unreadChatActivity;
+    badge.style.display = 'inline-block';
+  }
+  function clearChatBadge(){
+    unreadChatActivity = 0;
+    const badge = document.getElementById('chatBadge');
+    badge.style.display = 'none';
+  }
+  subscribeAdminInbox({
+    onNewSession: () => { bumpChatBadge(); loadChatSessions(); },
+    onNewMessage: () => { bumpChatBadge(); loadChatSessions(); },
+  });
 
   const STATUSES = ['pending_payment','paid','in_progress','delivered','cancelled'];
   let currentFilter = 'all';
@@ -152,7 +171,7 @@
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('on'));
       btn.classList.add('on');
       document.getElementById('panel-' + btn.dataset.tab).classList.add('on');
-      if (btn.dataset.tab === 'chat') loadChatSessions();
+      if (btn.dataset.tab === 'chat') { loadChatSessions(); clearChatBadge(); }
     });
   });
 
@@ -403,6 +422,13 @@
     d.textContent = str || '';
     return d.innerHTML;
   }
+  function formatChatDate(iso){
+    const d = new Date(iso);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    return d.toLocaleDateString([], {month:'short', day:'numeric'}) + ' · ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }
 
   // ---------------- chat ----------------
   let activeSessionId = null;
@@ -457,7 +483,8 @@
         return `<div class="chat-session-row" data-session="${s.id}" style="padding:12px 14px; border-bottom:1px solid var(--hair); cursor:pointer; display:flex; justify-content:space-between; align-items:flex-start; gap:6px; ${s.id===activeSessionId?'background:var(--hair);':''}">
           <div style="min-width:0;">
             <div style="font-size:13px; font-weight:700;">${escapeHtml(who)}</div>
-            <div style="font-size:11.5px; color:var(--mute); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${lastMsg ? escapeHtml(lastMsg.body) : 'No messages'} </div>
+            <div style="font-size:10.5px; color:var(--mute); margin-top:1px;">Started ${formatChatDate(s.created_at)}</div>
+            <div style="font-size:11.5px; color:var(--mute); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${lastMsg ? escapeHtml(lastMsg.body) : 'No messages'} </div>
           </div>
           <button data-remove-session="${s.id}" style="flex-shrink:0; background:none; border:none; color:var(--mute); cursor:pointer; font-size:13px; padding:2px 4px;" title="Remove this conversation">✕</button>
         </div>`;
@@ -522,10 +549,17 @@
 
   function renderChatMsg(msg){
     const thread = document.getElementById('chatThread');
-    const el = document.createElement('div');
-    el.style.cssText = `margin-bottom:10px; max-width:80%; padding:8px 12px; border-radius:10px; font-size:13px; line-height:1.4; ${msg.sender_role === 'admin' ? 'background:var(--coral); color:var(--oncoral); margin-left:auto;' : 'background:var(--ink2); color:var(--paper); border:1px solid var(--hair); margin-right:auto;'}`;
-    el.textContent = msg.body;
-    thread.appendChild(el);
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `margin-bottom:10px; max-width:80%; ${msg.sender_role === 'admin' ? 'margin-left:auto;' : 'margin-right:auto;'}`;
+    const bubble = document.createElement('div');
+    bubble.style.cssText = `padding:8px 12px; border-radius:10px; font-size:13px; line-height:1.4; ${msg.sender_role === 'admin' ? 'background:var(--coral); color:var(--oncoral);' : 'background:var(--ink2); color:var(--paper); border:1px solid var(--hair);'}`;
+    bubble.textContent = msg.body;
+    wrap.appendChild(bubble);
+    const time = document.createElement('div');
+    time.style.cssText = `font-size:10.5px; color:var(--mute); margin-top:3px; text-align:${msg.sender_role === 'admin' ? 'right' : 'left'};`;
+    time.textContent = new Date(msg.created_at || Date.now()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    wrap.appendChild(time);
+    thread.appendChild(wrap);
   }
 
   document.getElementById('chatReplyBtn').addEventListener('click', sendChatReply);
@@ -536,7 +570,7 @@
     const body = input.value.trim();
     if (!body) return;
     input.value = '';
-    renderChatMsg({ sender_role: 'admin', body });
+    renderChatMsg({ sender_role: 'admin', body, created_at: new Date().toISOString() });
     await sendMessage(activeSessionId, 'admin', body);
   }
 

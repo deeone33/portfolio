@@ -36,7 +36,43 @@ export async function getOrCreateSession(visitorName, visitorEmail) {
   if (createErr) throw createErr;
 
   sessionStorage.setItem(SESSION_KEY, created.id);
+  announceNewSession(created); // so an admin who has NO conversation open yet still finds out
   return created;
+}
+
+/* ============================================================
+   ADMIN INBOX — a single global channel so the admin console can find
+   out about brand-new conversations and new messages in conversations it
+   hasn't opened, without needing to have any specific session's channel
+   already subscribed. Same persistent-channel pattern as the per-session
+   fix, for the same reason: a disposable channel never actually delivers.
+   ============================================================ */
+let inboxEntry = null;
+function getInboxChannel() {
+  if (inboxEntry) return inboxEntry;
+  const entry = { channel: null, sessionCbs: [], messageCbs: [] };
+  const channel = supabase.channel('admin-inbox')
+    .on('broadcast', { event: 'new_session' }, (msg) => entry.sessionCbs.forEach(cb => cb(msg.payload.session)))
+    .on('broadcast', { event: 'new_message' }, (msg) => entry.messageCbs.forEach(cb => cb(msg.payload)))
+    .subscribe();
+  entry.channel = channel;
+  inboxEntry = entry;
+  return entry;
+}
+function announceNewSession(session) {
+  getInboxChannel().channel.send({ type: 'broadcast', event: 'new_session', payload: { session } });
+}
+function announceNewMessage(sessionId, senderRole) {
+  getInboxChannel().channel.send({ type: 'broadcast', event: 'new_message', payload: { session_id: sessionId, sender_role: senderRole } });
+}
+export function subscribeAdminInbox({ onNewSession, onNewMessage }) {
+  const entry = getInboxChannel();
+  if (onNewSession) entry.sessionCbs.push(onNewSession);
+  if (onNewMessage) entry.messageCbs.push(onNewMessage);
+  return () => {
+    if (onNewSession) entry.sessionCbs = entry.sessionCbs.filter(cb => cb !== onNewSession);
+    if (onNewMessage) entry.messageCbs = entry.messageCbs.filter(cb => cb !== onNewMessage);
+  };
 }
 
 export async function getMessages(sessionId) {
@@ -83,6 +119,10 @@ export async function sendMessage(sessionId, senderRole, body) {
   getChannelEntry(sessionId).channel.send({
     type: 'broadcast', event: 'message', payload: { sender_role: senderRole, body, created_at: new Date().toISOString() }
   });
+
+  // Also tell the global admin inbox — this is what lets the admin find
+  // out about a message in a conversation they don't currently have open.
+  if (senderRole === 'visitor') announceNewMessage(sessionId, senderRole);
 }
 
 export function subscribeToMessages(sessionId, onMessage) {
@@ -177,7 +217,7 @@ export function mountChatWidget() {
       #fnchat-head .status{ font-size:11px; font-weight:600; opacity:.75; }
       #fnchat-head button{ background:none; border:none; color:inherit; cursor:pointer; font-size:15px; }
       #fnchat-body{ flex:1; overflow-y:auto; padding:14px; font-size:13px; }
-      .fnchat-msg{ margin-bottom:10px; max-width:85%; padding:8px 11px; border-radius:10px; line-height:1.4; }
+      .fnchat-msg{ padding:8px 11px; border-radius:10px; line-height:1.4; }
       .fnchat-msg.visitor{ background:var(--coral); color:var(--oncoral); margin-left:auto; border-bottom-right-radius:2px; }
       .fnchat-msg.admin{ background:#fff; border:1px solid var(--hair); margin-right:auto; border-bottom-left-radius:2px; }
       [data-theme="dark"] .fnchat-msg.admin{ background:var(--ink); }
@@ -240,10 +280,17 @@ export function mountChatWidget() {
 
   function renderMessage(msg, opts) {
     const body = document.getElementById('fnchat-body');
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `max-width:85%; margin-bottom:10px; ${msg.sender_role === 'visitor' ? 'margin-left:auto;' : 'margin-right:auto;'}`;
     const el = document.createElement('div');
     el.className = `fnchat-msg ${msg.sender_role} ${opts?.pending ? 'pending' : ''} ${opts?.failed ? 'failed' : ''}`;
     el.textContent = opts?.failed ? `${msg.body} — failed to send, try again` : msg.body;
-    body.appendChild(el);
+    wrap.appendChild(el);
+    const time = document.createElement('div');
+    time.style.cssText = `font-size:10px; color:var(--mute); margin-top:2px; text-align:${msg.sender_role === 'visitor' ? 'right' : 'left'};`;
+    time.textContent = new Date(msg.created_at || Date.now()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    wrap.appendChild(time);
+    body.appendChild(wrap);
     body.scrollTop = body.scrollHeight;
     return el;
   }
