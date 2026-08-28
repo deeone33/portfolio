@@ -280,8 +280,11 @@
   .rcard{ border-radius:14px; padding:24px; background:var(--ink2); border:1px solid var(--hair); box-shadow:0 2px 10px -6px var(--shadow); transition:.18s ease; }
   .rcard:hover{ box-shadow:0 14px 30px -12px var(--shadow); transform:translateY(-2px); }
   .rcard .rquote-icon{ width:26px; height:26px; color:var(--coral); opacity:.5; margin-bottom:10px; }
+  .rcard .rtop{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .rcard .ravatar{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0; }
+  .rcard .rstars{ font-size:13px; color:#E5A93A; letter-spacing:2px; margin-bottom:12px; }
   .rcard p.rquote{ font-size:14px; line-height:1.6; color:var(--paper); }
-  .rcard .rmeta{ margin-top:16px; display:flex; flex-direction:column; }
+  .rcard .rmeta{ display:flex; flex-direction:column; }
   .rcard .rname{ font-size:13.5px; font-weight:700; }
   .rcard .rsite{ font-size:12px; color:var(--mute); }
 
@@ -436,9 +439,9 @@ const DEFAULT_DATA = {
       order:5.5, hidden:false, margin:{mt:60,mb:0},
       heading: { text:{en:'What clients say',et:'Mida kliendid ütlevad',ru:'Отзывы клиентов',sv:'Vad kunder säger'}, style:{size:30,weight:800,italic:false,color:'#1E2126'}, hidden:false },
       items: [
-        {id:'r1', order:0, hidden:false, name:{en:'Anna K.',et:'Anna K.',ru:'Анна К.',sv:'Anna K.'}, site:{en:'Nordic Bakery',et:'Nordic Bakery',ru:'Nordic Bakery',sv:'Nordic Bakery'}, quote:{en:'Delivered exactly on the timeline they quoted, no surprises at the end.',et:'Kõik valmis täpselt tähtajaks, ilma üllatusteta.',ru:'Всё сдано точно в срок, без сюрпризов.',sv:'Levererat exakt enligt tidsplan, inga överraskningar.'}},
-        {id:'r2', order:1, hidden:false, name:{en:'Marek T.',et:'Marek T.',ru:'Марек Т.',sv:'Marek T.'}, site:{en:'Baltic Fitness Studio',et:'Baltic Fitness Studio',ru:'Baltic Fitness Studio',sv:'Baltic Fitness Studio'}, quote:{en:'Clear communication throughout, and the site actually looks like us.',et:'Selge suhtlus kogu protsessi vältel ja tulemus näeb välja nagu meie.',ru:'Понятная коммуникация на всех этапах, сайт получился действительно наш.',sv:'Tydlig kommunikation hela vägen, och sajten känns verkligen som oss.'}},
-        {id:'r3', order:2, hidden:false, name:{en:'Liis P.',et:'Liis P.',ru:'Лийс П.',sv:'Liis P.'}, site:{en:'Tallinn Yoga Room',et:'Tallinn Yoga Room',ru:'Tallinn Yoga Room',sv:'Tallinn Yoga Room'}, quote:{en:'Worth it just for how easy booking has become for our clients.',et:'Väärt juba selle pärast, kui lihtsaks broneerimine meie klientidele muutus.',ru:'Уже стоит того — насколько проще стало бронирование для клиентов.',sv:'Värt det bara för hur enkelt bokning blivit för våra kunder.'}}
+        {id:'r1', order:0, hidden:false, rating:5, name:{en:'Anna K.',et:'Anna K.',ru:'Анна К.',sv:'Anna K.'}, site:{en:'Nordic Bakery',et:'Nordic Bakery',ru:'Nordic Bakery',sv:'Nordic Bakery'}, quote:{en:'Delivered exactly on the timeline they quoted, no surprises at the end.',et:'Kõik valmis täpselt tähtajaks, ilma üllatusteta.',ru:'Всё сдано точно в срок, без сюрпризов.',sv:'Levererat exakt enligt tidsplan, inga överraskningar.'}},
+        {id:'r2', order:1, hidden:false, rating:5, name:{en:'Marek T.',et:'Marek T.',ru:'Марек Т.',sv:'Marek T.'}, site:{en:'Baltic Fitness Studio',et:'Baltic Fitness Studio',ru:'Baltic Fitness Studio',sv:'Baltic Fitness Studio'}, quote:{en:'Clear communication throughout, and the site actually looks like us.',et:'Selge suhtlus kogu protsessi vältel ja tulemus näeb välja nagu meie.',ru:'Понятная коммуникация на всех этапах, сайт получился действительно наш.',sv:'Tydlig kommunikation hela vägen, och sajten känns verkligen som oss.'}},
+        {id:'r3', order:2, hidden:false, rating:5, name:{en:'Liis P.',et:'Liis P.',ru:'Лийс П.',sv:'Liis P.'}, site:{en:'Tallinn Yoga Room',et:'Tallinn Yoga Room',ru:'Tallinn Yoga Room',sv:'Tallinn Yoga Room'}, quote:{en:'Worth it just for how easy booking has become for our clients.',et:'Väärt juba selle pärast, kui lihtsaks broneerimine meie klientidele muutus.',ru:'Уже стоит того — насколько проще стало бронирование для клиентов.',sv:'Värt det bara för hur enkelt bokning blivit för våra kunder.'}}
       ]
     },
     footer: {
@@ -515,6 +518,14 @@ const ICONS = {
   database: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>'
 };
 function iconSvg(key){ return ICONS[key] || ICONS.layers; }
+const AVATAR_COLORS = ['#B85C42','#4C7A52','#3D6690','#9C7A2E','#6C5A94','#B14A6E'];
+function initials(name){
+  return (name||'').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase() || '?';
+}
+function starsHtml(rating){
+  const n = Math.max(0, Math.min(5, rating || 5));
+  return '★★★★★'.slice(0,n) + '☆☆☆☆☆'.slice(0,5-n);
+}
 function iconBadgeAttrs(item, idx, baseClass){
   if (item.tint === 'none') return `class="${baseClass}" style="background:var(--ink);border-color:var(--hair);color:var(--mute);"`;
   if (item.tint) return `class="${baseClass}" style="background:color-mix(in srgb, ${item.tint} 22%, var(--ink2));border-color:color-mix(in srgb, ${item.tint} 40%, var(--ink2));color:${item.tint};"`;
@@ -910,12 +921,15 @@ function renderReviews(){
         <button onclick="moveItem('reviews.items','${r.id}',-1)" ${idx===0?'disabled':''}>↑</button>
         <button onclick="moveItem('reviews.items','${r.id}',1)" ${idx===arr.length-1?'disabled':''}>↓</button>
       </div>`:''}
-      <div class="rquote-icon">${iconSvg('quote')}</div>
-      <p class="rquote" data-editpath="reviews.items[${r.id}].quote">${t(r.quote)}</p>
-      <div class="rmeta">
-        <span class="rname" data-editpath="reviews.items[${r.id}].name">${t(r.name)}</span>
-        <span class="rsite" data-editpath="reviews.items[${r.id}].site">${t(r.site)}</span>
+      <div class="rtop">
+        <div class="ravatar" style="background:color-mix(in srgb, ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} 22%, var(--ink2)); color:${AVATAR_COLORS[idx % AVATAR_COLORS.length]};">${initials(t(r.name))}</div>
+        <div class="rmeta">
+          <span class="rname" data-editpath="reviews.items[${r.id}].name">${t(r.name)}</span>
+          <span class="rsite" data-editpath="reviews.items[${r.id}].site">${t(r.site)}</span>
+        </div>
       </div>
+      <div class="rstars">${starsHtml(r.rating)}</div>
+      <p class="rquote" data-editpath="reviews.items[${r.id}].quote">${t(r.quote)}</p>
       <span class="edit-pencil">✎</span>
     </div>`).join('');
   const addTile = canEdit() ? `<div class="rcard add-tile" onclick="addReview()"><span>+</span><div>Add review</div></div>` : '';
@@ -932,7 +946,7 @@ function addReview(){
   const rv = siteData.sections.reviews;
   const maxOrder = rv.items.reduce((m,r)=>Math.max(m,r.order),-1);
   const id = 'r'+Date.now();
-  rv.items.push({id, order:maxOrder+1, hidden:false,
+  rv.items.push({id, order:maxOrder+1, hidden:false, rating:5,
     name:{en:'New client',et:'Uus klient',ru:'Новый клиент',sv:'Ny kund'},
     site:{en:'Company name',et:'Ettevõtte nimi',ru:'Название компании',sv:'Företagsnamn'},
     quote:{en:'Add their quote here.',et:'Lisa tsitaat siia.',ru:'Добавьте цитату.',sv:'Lägg till citat här.'}});
@@ -947,11 +961,22 @@ function reviewPanel(r){
     <input type="text" id="f_name" value="${(r.name[siteData.lang]||'').replace(/"/g,'&quot;')}">
     <label>Site / company</label>
     <input type="text" id="f_site" value="${(r.site[siteData.lang]||'').replace(/"/g,'&quot;')}">
+    <label>Rating</label>
+    <div style="display:flex; gap:4px; margin-bottom:4px;">
+      ${[1,2,3,4,5].map(n=>`<button type="button" onclick="setReviewRating('${r.id}',${n})" style="font-size:20px; background:none; border:none; cursor:pointer; color:${n<=(r.rating||5)?'#E5A93A':'var(--hair)'};">★</button>`).join('')}
+    </div>
     <label>Quote</label>
     <textarea id="f_quote">${r.quote[siteData.lang]||''}</textarea>
     <button class="go" style="margin-top:20px;" onclick="saveReview('${r.id}')">Apply</button>
     <button class="danger" onclick="setHidden('review','${r.id}',null,true); closePanel();">Remove (hide, keeps no space)</button>
   `;
+}
+function setReviewRating(id, n){
+  pushHistory();
+  const r = siteData.sections.reviews.items.find(x=>x.id===id);
+  r.rating = n;
+  saveLocal(); render();
+  document.getElementById('panel').innerHTML = reviewPanel(r);
 }
 function saveReview(id){
   pushHistory();

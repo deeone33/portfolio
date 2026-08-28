@@ -64,6 +64,7 @@ nav.site .cta:hover{background:var(--paper); color:var(--ink); transform:transla
 
 /* ---------- FORMS ---------- */
 .form-card{max-width:520px; margin:0 auto; background:#fff; border:1px solid #DDE1E6; border-radius:16px; padding:36px; box-shadow:0 20px 50px -20px var(--shadow);}
+[data-theme="dark"] .form-card{background:var(--ink2); border-color:#3A3F46;}
 .form-card h2{font-size:22px; font-weight:800; margin-bottom:6px;}
 .form-card .sub{font-size:13.5px; color:var(--mute); margin-bottom:24px;}
 label.field-label{display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); margin:16px 0 6px;}
@@ -77,12 +78,15 @@ input[type=file]::file-selector-button{ padding:8px 14px; border-radius:8px; bor
 [data-theme="dark"] input[type=file]::file-selector-button{ background:#22262C; border-color:#3A3F46; color:var(--paper); }
 textarea{min-height:100px; resize:vertical;}
 .form-error{background:#FBEDEA; color:var(--danger); border:1px solid #E2A79C; border-radius:8px; padding:10px 14px; font-size:13px; margin-top:14px;}
+[data-theme="dark"] .form-error{background:#3A1E1A; border-color:#5A3028;}
 .form-success{background:#E6F4EC; color:#1E6B3E; border:1px solid #A9D8BB; border-radius:8px; padding:10px 14px; font-size:13px; margin-top:14px;}
+[data-theme="dark"] .form-success{background:#123A24; color:#6ED99A; border-color:#1E5636;}
 .form-links{display:flex; justify-content:space-between; margin-top:16px; font-size:13px;}
 .form-links a{color:var(--coral); font-weight:600;}
 .divider{display:flex; align-items:center; gap:12px; margin:22px 0; color:var(--mute); font-size:12px;}
 .divider::before, .divider::after{content:''; flex:1; height:1px; background:var(--hair);}
-.google-btn{width:100%; display:flex; align-items:center; justify-content:center; gap:10px; padding:12px; border:1px solid #D5D9DE; border-radius:100px; background:#fff; font-weight:600; font-size:14px; cursor:pointer; transition:.15s ease;}
+.google-btn{width:100%; display:flex; align-items:center; justify-content:center; gap:10px; padding:12px; border:1px solid #D5D9DE; border-radius:100px; background:#fff; color:#1E2126; font-weight:600; font-size:14px; cursor:pointer; transition:.15s ease;}
+[data-theme="dark"] .google-btn{background:#2A2E35; border-color:#3A3F46; color:#EDEFF2;}
 .google-btn:hover{background:var(--ink2); border-color:var(--paper);}
 
 /* ---------- PRICING (reused from homepage plan cards) ---------- */
