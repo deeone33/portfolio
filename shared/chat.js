@@ -49,6 +49,28 @@ export async function getMessages(sessionId) {
   return data;
 }
 
+// One real, subscribed channel per session — reused for sending AND
+// receiving, for both messages and typing. The previous version created a
+// brand-new unsubscribed channel on every single send, which is why live
+// updates silently never arrived: Supabase's Realtime requires a channel
+// to actually finish joining before a broadcast on it is delivered, and a
+// disposable channel that's immediately discarded never gets there.
+const channelRegistry = new Map(); // sessionId -> { channel, messageCbs:[], typingCbs:[] }
+
+function getChannelEntry(sessionId) {
+  const existing = channelRegistry.get(sessionId);
+  if (existing) return existing;
+
+  const entry = { channel: null, messageCbs: [], typingCbs: [] };
+  const channel = supabase.channel(`chat:${sessionId}`)
+    .on('broadcast', { event: 'message' }, (msg) => entry.messageCbs.forEach(cb => cb(msg.payload)))
+    .on('broadcast', { event: 'typing' }, (msg) => entry.typingCbs.forEach(cb => cb(msg.payload.text)))
+    .subscribe();
+  entry.channel = channel;
+  channelRegistry.set(sessionId, entry);
+  return entry;
+}
+
 export async function sendMessage(sessionId, senderRole, body) {
   const { error } = await supabase.from('chat_messages').insert({ session_id: sessionId, sender_role: senderRole, body });
   if (error) throw error;
@@ -58,16 +80,15 @@ export async function sendMessage(sessionId, senderRole, body) {
   // The DB insert above is the real source of truth — this is purely a
   // UX nicety so an open chat window updates without polling or waiting
   // on a page refresh.
-  supabase.channel(`chat:${sessionId}`).send({
+  getChannelEntry(sessionId).channel.send({
     type: 'broadcast', event: 'message', payload: { sender_role: senderRole, body, created_at: new Date().toISOString() }
   });
 }
 
 export function subscribeToMessages(sessionId, onMessage) {
-  const channel = supabase.channel(`chat:${sessionId}`)
-    .on('broadcast', { event: 'message' }, (msg) => onMessage(msg.payload))
-    .subscribe();
-  return () => supabase.removeChannel(channel);
+  const entry = getChannelEntry(sessionId);
+  entry.messageCbs.push(onMessage);
+  return () => { entry.messageCbs = entry.messageCbs.filter(cb => cb !== onMessage); };
 }
 
 /* ============================================================
@@ -76,15 +97,14 @@ export function subscribeToMessages(sessionId, onMessage) {
    watching, it simply goes nowhere.
    ============================================================ */
 export function broadcastTyping(sessionId, text) {
-  supabase.channel(`chat:${sessionId}`).send({
+  getChannelEntry(sessionId).channel.send({
     type: 'broadcast', event: 'typing', payload: { text }
   });
 }
 export function subscribeToTyping(sessionId, onTyping) {
-  const channel = supabase.channel(`chat:${sessionId}`)
-    .on('broadcast', { event: 'typing' }, (msg) => onTyping(msg.payload.text))
-    .subscribe();
-  return () => supabase.removeChannel(channel);
+  const entry = getChannelEntry(sessionId);
+  entry.typingCbs.push(onTyping);
+  return () => { entry.typingCbs = entry.typingCbs.filter(cb => cb !== onTyping); };
 }
 
 /* ============================================================
