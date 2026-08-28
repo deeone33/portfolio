@@ -8,7 +8,7 @@ const SESSION_KEY = 'fieldnote_chat_session_id';
    customers use their real account; anonymous visitors get a lightweight
    Supabase Anonymous Sign-In identity the first time they open the widget.
    ============================================================ */
-export async function getOrCreateSession(visitorEmail) {
+export async function getOrCreateSession(visitorName, visitorEmail) {
   let { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -30,7 +30,7 @@ export async function getOrCreateSession(visitorEmail) {
 
   const { data: created, error: createErr } = await supabase.from('chat_sessions').insert({
     visitor_id: user.id,
-    visitor_name: user.user_metadata?.full_name || null,
+    visitor_name: visitorName || user.user_metadata?.full_name || null,
     visitor_email: visitorEmail || user.email || null,
   }).select().single();
   if (createErr) throw createErr;
@@ -141,7 +141,7 @@ export function mountChatWidget() {
       #fnchat-bubble svg{ width:24px; height:24px; }
       #fnchat-panel{ position:fixed; bottom:88px; right:22px; width:320px; max-height:460px; background:var(--ink2); border:1px solid var(--hair); border-radius:16px; box-shadow:0 20px 50px -15px rgba(0,0,0,.4); display:none; flex-direction:column; z-index:400; overflow:hidden; }
       #fnchat-panel.open{ display:flex; }
-      #fnchat-head{ padding:14px 16px; background:var(--paper); color:var(--ink); font-weight:700; font-size:13.5px; display:flex; justify-content:space-between; align-items:center; }
+      #fnchat-head{ padding:14px 16px; background:var(--paper); color:var(--ink); font-weight:700; font-size:13.5px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
       #fnchat-head .status{ font-size:11px; font-weight:600; opacity:.75; }
       #fnchat-head button{ background:none; border:none; color:inherit; cursor:pointer; font-size:15px; }
       #fnchat-body{ flex:1; overflow-y:auto; padding:14px; font-size:13px; }
@@ -149,12 +149,15 @@ export function mountChatWidget() {
       .fnchat-msg.visitor{ background:var(--coral); color:var(--oncoral); margin-left:auto; border-bottom-right-radius:2px; }
       .fnchat-msg.admin{ background:#fff; border:1px solid var(--hair); margin-right:auto; border-bottom-left-radius:2px; }
       [data-theme="dark"] .fnchat-msg.admin{ background:var(--ink); }
-      #fnchat-offline-form{ padding:14px; font-size:13px; }
-      #fnchat-offline-form input, #fnchat-offline-form textarea{ width:100%; padding:8px 10px; border:1px solid var(--hair); border-radius:8px; font-size:13px; font-family:inherit; margin-bottom:8px; background:#fff; color:var(--paper); }
-      [data-theme="dark"] #fnchat-offline-form input, [data-theme="dark"] #fnchat-offline-form textarea{ background:var(--ink); }
-      #fnchat-offline-form textarea{ min-height:70px; resize:vertical; }
-      #fnchat-offline-form button{ width:100%; padding:9px; border-radius:8px; border:none; background:var(--paper); color:var(--ink); font-weight:700; font-size:13px; cursor:pointer; }
-      #fnchat-inputrow{ display:flex; gap:8px; padding:10px; border-top:1px solid var(--hair); }
+      .fnchat-msg.pending{ opacity:.55; }
+      .fnchat-msg.failed{ background:#FBEDEA; color:#A1352A; border:1px solid #E2A79C; }
+      #fnchat-gate{ padding:16px; font-size:13px; }
+      #fnchat-gate p{ color:var(--mute); margin-bottom:12px; }
+      #fnchat-gate input{ width:100%; padding:9px 10px; border:1px solid var(--hair); border-radius:8px; font-size:13px; font-family:inherit; margin-bottom:8px; background:#fff; color:var(--paper); }
+      [data-theme="dark"] #fnchat-gate input{ background:var(--ink); }
+      #fnchat-gate button{ width:100%; padding:10px; border-radius:8px; border:none; background:var(--paper); color:var(--ink); font-weight:700; font-size:13px; cursor:pointer; margin-top:4px; }
+      #fnchat-gate-error{ color:#A1352A; font-size:12px; margin-top:6px; display:none; }
+      #fnchat-inputrow{ display:none; gap:8px; padding:10px; border-top:1px solid var(--hair); flex-shrink:0; }
       #fnchat-inputrow input{ flex:1; padding:8px 10px; border:1px solid var(--hair); border-radius:100px; font-size:13px; font-family:inherit; background:#fff; color:var(--paper); }
       [data-theme="dark"] #fnchat-inputrow input{ background:var(--ink); }
       #fnchat-inputrow button{ width:36px; height:36px; border-radius:50%; border:none; background:var(--coral); color:var(--oncoral); cursor:pointer; flex-shrink:0; }
@@ -170,15 +173,15 @@ export function mountChatWidget() {
           <button id="fnchat-close">✕</button>
         </span>
       </div>
-      <div id="fnchat-body"></div>
-      <div id="fnchat-offline-form" style="display:none;">
-        <p style="color:var(--mute); margin-bottom:10px;">We're not online right now — leave a message and we'll get back to you.</p>
-        <input type="email" id="fnchat-email" placeholder="Your email (optional, so we can reply)">
-        <textarea id="fnchat-msg-offline" placeholder="What's up?"></textarea>
-        <button id="fnchat-send-offline">Send message</button>
-        <div id="fnchat-offline-sent" style="display:none; color:var(--mute); margin-top:8px;">Sent — thanks! We'll follow up soon.</div>
+      <div id="fnchat-body" style="display:none;"></div>
+      <div id="fnchat-gate">
+        <p id="fnchat-gate-msg">Quick intro before we chat:</p>
+        <input type="text" id="fnchat-name" placeholder="Your name">
+        <input type="email" id="fnchat-email" placeholder="Your email">
+        <button id="fnchat-gate-btn">Start chat</button>
+        <div id="fnchat-gate-error"></div>
       </div>
-      <div id="fnchat-inputrow" style="display:none;">
+      <div id="fnchat-inputrow">
         <input type="text" id="fnchat-input" placeholder="Type a message...">
         <button id="fnchat-send" aria-label="Send">→</button>
       </div>
@@ -188,13 +191,12 @@ export function mountChatWidget() {
 
   let session = null;
   let adminOnline = false;
-  let unsubMessages = null;
 
   subscribeAdminOnlineStatus((online) => {
     adminOnline = online;
     document.getElementById('fnchat-status').textContent = online ? '🟢 Online' : '⚪ Offline';
-    document.getElementById('fnchat-offline-form').style.display = (!online && !session) ? 'block' : 'none';
-    document.getElementById('fnchat-inputrow').style.display = (online || session) ? 'flex' : 'none';
+    const gateMsg = document.getElementById('fnchat-gate-msg');
+    if (!session) gateMsg.textContent = online ? 'Quick intro before we chat:' : "We're offline right now — leave your info and a message and we'll get back to you:";
   });
 
   document.getElementById('fnchat-bubble').addEventListener('click', () => {
@@ -204,53 +206,67 @@ export function mountChatWidget() {
     document.getElementById('fnchat-panel').classList.remove('open');
   });
 
-  async function ensureSession(email) {
-    if (session) return session;
-    session = await getOrCreateSession(email);
-    document.getElementById('fnchat-offline-form').style.display = 'none';
-    document.getElementById('fnchat-inputrow').style.display = 'flex';
-    const existing = await getMessages(session.id);
-    existing.forEach(renderMessage);
-    unsubMessages = subscribeToMessages(session.id, renderMessage);
-    return session;
-  }
-
-  function renderMessage(msg) {
+  function renderMessage(msg, opts) {
     const body = document.getElementById('fnchat-body');
     const el = document.createElement('div');
-    el.className = `fnchat-msg ${msg.sender_role}`;
-    el.textContent = msg.body;
+    el.className = `fnchat-msg ${msg.sender_role} ${opts?.pending ? 'pending' : ''} ${opts?.failed ? 'failed' : ''}`;
+    el.textContent = opts?.failed ? `${msg.body} — failed to send, try again` : msg.body;
     body.appendChild(el);
     body.scrollTop = body.scrollHeight;
+    return el;
   }
 
-  document.getElementById('fnchat-send-offline').addEventListener('click', async () => {
-    const email = document.getElementById('fnchat-email').value;
-    const body = document.getElementById('fnchat-msg-offline').value.trim();
-    if (!body) return;
+  // ---- the gate: name + email required exactly once, before anything else ----
+  // Calling getOrCreateSession() from a single explicit action here (rather
+  // than lazily from both the typing handler AND the send handler, which is
+  // what the previous version did) is what actually fixes chat reliability —
+  // those two independent lazy-creation paths could race each other and
+  // create duplicate, empty, orphaned sessions.
+  document.getElementById('fnchat-gate-btn').addEventListener('click', async () => {
+    const name = document.getElementById('fnchat-name').value.trim();
+    const email = document.getElementById('fnchat-email').value.trim();
+    const errEl = document.getElementById('fnchat-gate-error');
+    errEl.style.display = 'none';
+    if (!name || !email) {
+      errEl.textContent = 'Both name and email are required.';
+      errEl.style.display = 'block';
+      return;
+    }
     try {
-      const s = await ensureSession(email);
-      await sendMessage(s.id, 'visitor', body);
-      document.getElementById('fnchat-offline-form').style.display = 'none';
-      document.getElementById('fnchat-offline-sent').style.display = 'block';
+      session = await getOrCreateSession(name, email);
+      document.getElementById('fnchat-gate').style.display = 'none';
+      document.getElementById('fnchat-body').style.display = 'block';
+      document.getElementById('fnchat-inputrow').style.display = 'flex';
+      const existing = await getMessages(session.id);
+      existing.forEach(m => renderMessage(m));
+      subscribeToMessages(session.id, (msg) => renderMessage(msg));
+      document.getElementById('fnchat-input').focus();
     } catch (err) {
-      alert(err.message);
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
     }
   });
 
   const input = document.getElementById('fnchat-input');
-  input.addEventListener('input', async () => {
-    if (!session) session = await ensureSession();
-    broadcastTyping(session.id, input.value);
+  input.addEventListener('input', () => {
+    if (session) broadcastTyping(session.id, input.value);
   });
+
   async function doSend() {
+    if (!session) return; // gate guarantees this shouldn't happen, but stay safe
     const body = input.value.trim();
     if (!body) return;
-    const s = await ensureSession();
     input.value = '';
-    broadcastTyping(s.id, '');
-    renderMessage({ sender_role: 'visitor', body });
-    await sendMessage(s.id, 'visitor', body);
+    broadcastTyping(session.id, '');
+    const el = renderMessage({ sender_role: 'visitor', body }, { pending: true });
+    try {
+      await sendMessage(session.id, 'visitor', body);
+      el.classList.remove('pending');
+    } catch (err) {
+      el.classList.remove('pending');
+      el.classList.add('failed');
+      console.error('chat send failed:', err);
+    }
   }
   document.getElementById('fnchat-send').addEventListener('click', doSend);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSend(); });

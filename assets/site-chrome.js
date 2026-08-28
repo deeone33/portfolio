@@ -70,7 +70,7 @@ export async function renderHeader(activePath) {
   const accountMenu = user ? `
     <div class="lang" id="chromeAccountSwitch" style="position:relative;">
       <button class="account-btn" onclick="document.getElementById('chromeAccountSwitch').classList.toggle('open')" aria-label="Account">${PERSON_ICON}</button>
-      <div class="lang-menu" style="position:absolute; top:calc(100% + 8px); right:0; background:#fff; border:1px solid var(--hair); border-radius:10px; padding:6px; display:none; min-width:160px; box-shadow:0 12px 30px -10px var(--shadow); z-index:50;">
+      <div class="lang-menu" style="position:absolute; top:calc(100% + 8px); right:0; background:var(--ink2); border:1px solid var(--hair); border-radius:10px; padding:6px; display:none; min-width:160px; box-shadow:0 12px 30px -10px var(--shadow); z-index:50;">
         <a href="account.html" style="display:block; text-decoration:none; color:inherit; padding:9px 10px; border-radius:6px; font-size:13.5px; font-weight:500;">My account</a>
         <a href="account.html" style="display:block; text-decoration:none; color:inherit; padding:9px 10px; border-radius:6px; font-size:13.5px; font-weight:500;">Orders</a>
         <div onclick="window.__accountSignOut()" style="padding:9px 10px; border-radius:6px; font-size:13.5px; font-weight:500; cursor:pointer; color:#A1352A;">Log out</div>
@@ -89,7 +89,7 @@ export async function renderHeader(activePath) {
           <button onclick="document.getElementById('chromeLangSwitch').classList.toggle('open')" style="display:flex; align-items:center; gap:6px; background:none; border:none; cursor:pointer; padding:6px; border-radius:8px;">
             ${flagSvg(getLang())}
           </button>
-          <div class="lang-menu" style="position:absolute; top:calc(100% + 8px); right:0; background:#fff; border:1px solid var(--hair); border-radius:10px; padding:6px; display:none; min-width:140px; box-shadow:0 12px 30px -10px var(--shadow); z-index:50;">
+          <div class="lang-menu" style="position:absolute; top:calc(100% + 8px); right:0; background:var(--ink2); border:1px solid var(--hair); border-radius:10px; padding:6px; display:none; min-width:140px; box-shadow:0 12px 30px -10px var(--shadow); z-index:50;">
             ${['et','en','ru','sv'].map(l => `<div onclick="window.__setChromeLang('${l}')" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:6px; font-size:13.5px; font-weight:500; cursor:pointer; ${l===getLang()?'color:var(--coral); font-weight:700;':''}">${flagSvg(l)} ${langName(l)}</div>`).join('')}
           </div>
         </div>

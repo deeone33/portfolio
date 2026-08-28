@@ -110,7 +110,43 @@ export async function postComment(orderId, authorId, authorRole, body) {
   if (error) throw error;
 }
 
+// Allowlist, not a blocklist — you can't enumerate every dangerous file
+// type that might exist, but you CAN enumerate the handful of types a
+// small business actually needs to send/receive. SVG is deliberately
+// excluded (can embed scripts); archives are excluded too (can hide
+// anything inside them, including executables).
+const ALLOWED_EXTENSIONS = ['pdf','doc','docx','odt','txt','rtf','xls','xlsx','csv','ods','ppt','pptx','jpg','jpeg','png','gif','webp'];
+const ALLOWED_MIME_TYPES = [
+  'application/pdf','application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.oasis.opendocument.text','text/plain','application/rtf',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv','application/vnd.oasis.opendocument.spreadsheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'image/jpeg','image/png','image/gif','image/webp'
+];
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
+function validateFile(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    throw new Error(`".${ext}" files aren't allowed. Allowed: documents (PDF, Word, text), spreadsheets (Excel, CSV), presentations (PowerPoint), and images (JPG, PNG, GIF, WebP).`);
+  }
+  // A file's declared MIME type can be empty/generic for some office formats
+  // depending on OS, so only reject on a MISMATCH when one is actually
+  // present — not just because it's unset.
+  if (file.type && !ALLOWED_MIME_TYPES.includes(file.type)) {
+    throw new Error(`This file's type ("${file.type}") doesn't match an allowed file type.`);
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(`File is too large (${(file.size/1024/1024).toFixed(1)}MB) — 20MB max.`);
+  }
+}
+
 export async function uploadDeliverable(orderId, file, uploadedBy) {
+  validateFile(file);
   const path = `${orderId}/${Date.now()}-${file.name}`;
   const { error: upErr } = await supabase.storage.from('deliverables').upload(path, file);
   if (upErr) throw upErr;
@@ -124,6 +160,7 @@ export async function uploadDeliverable(orderId, file, uploadedBy) {
 // upload so the UI can show it separately from staff deliverables, and
 // gated by a dedicated RLS policy scoped to the customer's own order.
 export async function uploadCustomerFile(orderId, file, userId) {
+  validateFile(file);
   const path = `${orderId}/${Date.now()}-${file.name}`;
   const { error: upErr } = await supabase.storage.from('deliverables').upload(path, file);
   if (upErr) throw upErr;

@@ -70,6 +70,11 @@ label.field-label{display:block; font-size:12px; font-weight:700; text-transform
 input[type=text], input[type=email], input[type=password], input[type=tel], textarea, select{
   width:100%; padding:12px 14px; border:1px solid #D5D9DE; border-radius:8px; font-size:14px; font-family:inherit; background:#F4F5F7; color:var(--paper);
 }
+[data-theme="dark"] input[type=text], [data-theme="dark"] input[type=email], [data-theme="dark"] input[type=password], [data-theme="dark"] input[type=tel], [data-theme="dark"] textarea, [data-theme="dark"] select{
+  background:#22262C; border-color:#3A3F46;
+}
+input[type=file]::file-selector-button{ padding:8px 14px; border-radius:8px; border:1px solid #D5D9DE; background:#fff; color:var(--paper); font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer; }
+[data-theme="dark"] input[type=file]::file-selector-button{ background:#22262C; border-color:#3A3F46; color:var(--paper); }
 textarea{min-height:100px; resize:vertical;}
 .form-error{background:#FBEDEA; color:var(--danger); border:1px solid #E2A79C; border-radius:8px; padding:10px 14px; font-size:13px; margin-top:14px;}
 .form-success{background:#E6F4EC; color:#1E6B3E; border:1px solid #A9D8BB; border-radius:8px; padding:10px 14px; font-size:13px; margin-top:14px;}

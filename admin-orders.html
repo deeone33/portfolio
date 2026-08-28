@@ -38,6 +38,9 @@
   .filter-bar button{padding:6px 12px; border-radius:100px; border:1px solid var(--hair); background:#fff; font-size:12px; cursor:pointer; font-weight:600;}
   [data-theme="dark"] .filter-bar button{background:var(--ink);}
   .filter-bar button.on{background:var(--paper); color:var(--ink); border-color:var(--paper);}
+  .range-btn{padding:7px 14px; border-radius:100px; border:1px solid var(--hair); background:#fff; font-size:12.5px; cursor:pointer; font-weight:600; color:var(--paper);}
+  [data-theme="dark"] .range-btn{background:var(--ink);}
+  .range-btn.on{background:var(--coral); color:var(--oncoral); border-color:var(--coral);}
 
   .top-pages-row{ display:flex; justify-content:space-between; padding:9px 0; border-top:1px solid var(--hair); font-size:13.5px; }
   .login-row{ display:flex; justify-content:space-between; padding:9px 0; border-top:1px solid var(--hair); font-size:13px; }
@@ -203,7 +206,7 @@
           ${o.notes ? `<p style="font-size:13px; color:var(--mute); margin-bottom:10px;">"${escapeHtml(o.notes)}"</p>` : ''}
           <div class="order-meta" style="margin-bottom:4px;">Files</div>
           ${files.length ? files.map(f => `<div class="file-row"><span>${escapeHtml(f.file_name)} ${f.uploaded_by_role==='customer' ? '<em style="color:var(--mute);">(from customer)</em>' : ''}</span><a href="#" class="dl-link" data-path="${f.file_path}" style="color:var(--coral); font-weight:700;">Download</a></div>`).join('') : `<div style="font-size:12.5px;color:var(--mute);">None yet.</div>`}
-          <div class="upload-row"><input type="file" data-upload="${o.id}"></div>
+          <div class="upload-row"><input type="file" accept=".pdf,.doc,.docx,.odt,.txt,.rtf,.xls,.xlsx,.csv,.ods,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp" data-upload="${o.id}"></div>
 
           <div class="order-meta" style="margin:14px 0 4px;">Comments</div>
           ${comments.length ? comments.map(c => `<div class="comment"><div class="who">${c.author_role === 'staff' ? 'You (staff)' : 'Customer'} · ${new Date(c.created_at).toLocaleDateString()}</div>${escapeHtml(c.body)}</div>`).join('') : `<div style="font-size:12.5px;color:var(--mute);">None yet.</div>`}
@@ -245,9 +248,13 @@
         const orderId = inp.dataset.upload;
         const file = inp.files[0];
         if (!file) return;
-        await uploadDeliverable(orderId, file, staffUser.id);
-        expandedOrders.add(orderId);
-        await load();
+        try {
+          await uploadDeliverable(orderId, file, staffUser.id);
+          expandedOrders.add(orderId);
+          await load();
+        } catch (err) {
+          alert('Upload failed: ' + err.message);
+        }
       });
     });
     document.querySelectorAll('.dl-link').forEach(a => {
